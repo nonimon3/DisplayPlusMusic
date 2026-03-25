@@ -56,7 +56,6 @@ async function createView(songIn: Song) {
             isEventCapture: 1,
             itemContainer: new ListItemContainerProperty({
                 itemCount: 3,
-                itemWidth: 70,
                 itemName: ["◁◁", " ▷ll", "▷▷"],
                 isItemSelectBorderEn: 1
             })
@@ -70,7 +69,7 @@ async function createView(songIn: Song) {
             width: MAX_WIDTH - (200),
             height: 90,
             borderRadius: 6,
-            borderWidth: 1,
+            borderWidth: 0,
             containerID: 3,
             containerName: 'songInfo',
             content: songInfoText,
@@ -86,7 +85,7 @@ async function createView(songIn: Song) {
             width: MAX_WIDTH,
             height: MAX_HEIGHT - 130, // Fits perfectly on screen without oversize error
             borderRadius: 6,
-            borderWidth: 1,
+            borderWidth: 0,
             containerID: 4,
             containerName: 'playbackBar',
             content: playbackBarText,
@@ -104,6 +103,7 @@ async function createView(songIn: Song) {
         if (!isPageCreated) {
             const container = new CreateStartUpPageContainer(containerConfig);
             const result = await bridge.createStartUpPageContainer(container);
+            console.log('createStartUpPageContainer result:', result);
 
             if (result === 0) {
                 console.log('Container created successfully');
@@ -137,7 +137,8 @@ async function createView(songIn: Song) {
                 // Config changed, rebuild
                 console.log("Layout config changed, rebuilding page container...");
                 const rebuildContainer = new RebuildPageContainer(containerConfig);
-                await bridge.rebuildPageContainer(rebuildContainer);
+                const rebuildResult = await bridge.rebuildPageContainer(rebuildContainer);
+                console.log('rebuildPageContainer result:', rebuildResult);
 
                 // Add a small delay so the glasses have time to clear the screen 
                 // and parse the new container before we bombard them with the image
