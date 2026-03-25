@@ -70,7 +70,16 @@ class Song {
     createPlaybackBar(maxWidth: number): string {
         let value = this.progressSeconds;
         let max = this.durationSeconds;
-        let progressPercent = value / max;
+
+        let progressPercent = 0;
+        if (max > 0) {
+            progressPercent = value / max;
+            if (isNaN(progressPercent) || !isFinite(progressPercent)) {
+                progressPercent = 0;
+            }
+            progressPercent = Math.max(0, Math.min(1, progressPercent));
+        }
+
         let maxUnderscores = 64;
         let maxDashes = 57;
         let maxVerticalBar = 144;
@@ -88,9 +97,13 @@ class Song {
 
         let dashCount = Math.floor(maxDashCount * (maxWidthTrue / maxWidth));
         let underscoreCount = Math.floor(maxUnderscoreCount * (maxWidthTrue / maxWidth));
-        while ((dashCount * dashWidth) + (underscoreCount * underscoreWidth) > maxWidthTrue) {
+        while ((dashCount * dashWidth) + (underscoreCount * underscoreWidth) > maxWidthTrue && dashCount > 0) {
             dashCount -= 1;
         }
+
+        dashCount = Math.max(0, dashCount);
+        underscoreCount = Math.max(0, underscoreCount);
+
         return (this.isPlaying ? "" : "|| ") + "[" + "-".repeat(dashCount) + "|" + "_".repeat(underscoreCount) + "]";
     }
 }

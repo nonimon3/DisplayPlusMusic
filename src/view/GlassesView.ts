@@ -84,7 +84,7 @@ async function createView(songIn: Song) {
             xPosition: 0,
             yPosition: 130,
             width: MAX_WIDTH,
-            height: 240,
+            height: MAX_HEIGHT - 130, // Fits perfectly on screen without oversize error
             borderRadius: 6,
             borderWidth: 1,
             containerID: 4,
