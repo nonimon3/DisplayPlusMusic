@@ -47,17 +47,17 @@ async function createView(songIn: Song) {
         const buttons = new ListContainerProperty({
             xPosition: 110,
             yPosition: 0,
-            width: 52,
+            width: 80,
             height: 130,
             borderWidth: 0,
-            borderRdaius: 0,
+            borderRadius: 0,
             containerID: 2,
             containerName: 'buttons',
             isEventCapture: 1,
             itemContainer: new ListItemContainerProperty({
                 itemCount: 3,
-                itemWidth: 52,
-                itemName: ["l◁", "▷ll", "▷l"],
+                itemWidth: 70,
+                itemName: ["◁◁", " ▷ll", "▷▷"],
                 isItemSelectBorderEn: 1
             })
         })
@@ -69,7 +69,7 @@ async function createView(songIn: Song) {
             yPosition: 25,
             width: MAX_WIDTH - (200),
             height: 90,
-            borderRdaius: 6,
+            borderRadius: 6,
             borderWidth: 1,
             containerID: 3,
             containerName: 'songInfo',
@@ -85,7 +85,7 @@ async function createView(songIn: Song) {
             yPosition: 130,
             width: MAX_WIDTH,
             height: 240,
-            borderRdaius: 6,
+            borderRadius: 6,
             borderWidth: 1,
             containerID: 4,
             containerName: 'playbackBar',

@@ -2,25 +2,27 @@
   "package_id": "com.oliemanq.displayplusmusic",
   "edition": "202601",
   "name": "DisplayPlus Music",
-  "version": "0.1.0",
-  "min_app_version": "0.1.0",
-  "tagline": "Spotify player for Even",
-  "description": "Music player based on DisplayPlus for the G1's. Requires a premium spotify account.",
-  "author": "Oliemanq",
+  "version": "1.0.0",
+  "min_app_version": "2.0.0",
+  "min_sdk_version": "0.0.7",
   "entrypoint": "index.html",
-  "permissions": {
-    "network": [
-      "evenhub.evenrealities.com",
-      "https://api.spotify.com/v1/*",
-      "https://accounts.spotify.com/*",
-      "https://encore.scdn.co/*",
-      "https://apresolve.spotify.com/*",
-      "https://gue1-spclient.spotify.com/*",
-      "https://accounts.scdn.co/*",
-      "https://sdk.scdn.co/*"
-    ],
-    "fs": [
-      "./assets"
-    ]
-  }
+  "permissions": [
+    {
+      "name": "network",
+      "desc": "This is needed to access Spotify's API's",
+      "whitelist": [
+        "https://evenhub.evenrealities.com",
+        "https://api.spotify.com/v1/*",
+        "https://accounts.spotify.com/*",
+        "https://encore.scdn.co/*",
+        "https://apresolve.spotify.com/*",
+        "https://gue1-spclient.spotify.com/*",
+        "https://accounts.scdn.co/*",
+        "https://sdk.scdn.co/*"
+      ]
+    }
+  ],
+  "supported_languages": [
+    "en"
+  ]
 }
