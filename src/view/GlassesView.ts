@@ -57,7 +57,7 @@ async function createView(songIn: Song) {
             itemContainer: new ListItemContainerProperty({
                 itemCount: 3,
                 itemName: ["◁◁", " ▷ll", "▷▷"],
-                isItemSelectBorderEn: 2
+                isItemSelectBorderEn: 1
             })
         })
 
@@ -65,12 +65,12 @@ async function createView(songIn: Song) {
         const songInfoText = songIn.title + "\n" + songIn.artist + "\n" + songIn.album;
         const songInfo = new TextContainerProperty({
             xPosition: 234,
-            yPosition: 0,
-            width: MAX_WIDTH - (244),
+            yPosition: 8,
+            width: MAX_WIDTH - (242),
             height: 132,
-            borderRadius: 6,
+            borderRadius: 12,
             borderWidth: 1,
-            paddingLength: 22,
+            paddingLength: 16,
             containerID: 3,
             containerName: 'songInfo',
             content: songInfoText,
