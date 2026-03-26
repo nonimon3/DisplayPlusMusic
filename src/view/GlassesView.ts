@@ -38,15 +38,15 @@ async function createView(songIn: Song) {
         const imageContainer = new ImageContainerProperty({
             xPosition: 0,
             yPosition: 13,
-            width: 100,
-            height: 100,
+            width: 144,
+            height: 144,
             containerID: 1,
             containerName: 'album-art',
         });
 
         const buttons = new ListContainerProperty({
-            xPosition: 110,
-            yPosition: 0,
+            xPosition: 154,
+            yPosition: 22,
             width: 80,
             height: 130,
             borderWidth: 0,
@@ -64,9 +64,9 @@ async function createView(songIn: Song) {
 
         const songInfoText = songIn.title + "\n" + songIn.artist + "\n" + songIn.album;
         const songInfo = new TextContainerProperty({
-            xPosition: 200,
-            yPosition: 25,
-            width: MAX_WIDTH - (200),
+            xPosition: 244,
+            yPosition: 47,
+            width: MAX_WIDTH - (244),
             height: 90,
             borderRadius: 6,
             borderWidth: 0,
@@ -81,9 +81,9 @@ async function createView(songIn: Song) {
         // const playbackBarText = "<".repeat(57);
         const playbackBar = new TextContainerProperty({
             xPosition: 0,
-            yPosition: 130,
+            yPosition: 160,
             width: MAX_WIDTH,
-            height: MAX_HEIGHT - 130, // Fits perfectly on screen without oversize error
+            height: MAX_HEIGHT - 160, // Fits perfectly on screen without oversize error
             borderRadius: 6,
             borderWidth: 0,
             containerID: 4,

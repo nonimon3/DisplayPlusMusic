@@ -1,3 +1,7 @@
+import placeholderArtUrl from '../Assets/placeholder_art.jpg';
+import { downloadImageAsGrayscalePng } from "./imageModel";
+
+
 class Song {
     type: string = 'Song';
 
@@ -110,13 +114,13 @@ class Song {
 
 let song_placeholder = new Song();
 song_placeholder.addTitle("No Song Found");
-song_placeholder.addArtist("");
+song_placeholder.addArtist("aaaaaaaaaaaaaaaaa");
 song_placeholder.addFeatures([""]);
-song_placeholder.addAlbum("");
+song_placeholder.addAlbum("aaaaaaaaaaaaaaaaaaaaaaaaaaaa");
 song_placeholder.addID("0");
 song_placeholder.addProgressSeconds(0);
 song_placeholder.addDurationSeconds(60);
-song_placeholder.addArtRaw(new Uint8Array());
+song_placeholder.addArtRaw(new Uint8Array()); //await downloadImageAsGrayscalePng(placeholderArtUrl, 144, 144)
 song_placeholder.addisPlaying(false);
 song_placeholder.addChangedState(false);
 
