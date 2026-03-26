@@ -46,7 +46,7 @@ async function createView(songIn: Song) {
 
         const buttons = new ListContainerProperty({
             xPosition: 154,
-            yPosition: 12,
+            yPosition: 0,
             width: 80,
             height: 130,
             borderWidth: 0,
@@ -77,7 +77,7 @@ async function createView(songIn: Song) {
         });
 
 
-        const playbackBarText = formatTime(songIn.progressSeconds) + " / " + formatTime(songIn.durationSeconds) + "\n" + songIn.createPlaybackBar(MAX_WIDTH) + "\n  " + lyricsPresenter.currentLine + "\n    " + lyricsPresenter.nextLine;
+        const playbackBarText = "   " + formatTime(songIn.progressSeconds) + " / " + formatTime(songIn.durationSeconds) + "\n" + songIn.createPlaybackBar(MAX_WIDTH) + "\n  " + lyricsPresenter.currentLine + "\n    " + lyricsPresenter.nextLine;
         // const playbackBarText = "<".repeat(57);
         const playbackBar = new TextContainerProperty({
             xPosition: 0,
