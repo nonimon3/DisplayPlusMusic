@@ -1,7 +1,7 @@
 import { encodeGrayscalePng } from '../Scripts/pngEncoder';
 
 class ImageModel {
-  async downloadImage(source: string | Blob): Promise<Blob> {
+  async _fetchBlob(source: string | Blob): Promise<Blob> {
     if (source instanceof Blob) {
       return source;
     }
@@ -14,8 +14,60 @@ class ImageModel {
 
     return await response.blob();
   }
+
+  async downloadImage(source: string | Blob, targetWidth?: number, targetHeight?: number): Promise<Uint8Array> {
+    const blob = await this._fetchBlob(source);
+    const bitmap = await createImageBitmap(blob);
+    let width = bitmap.width;
+    let height = bitmap.height;
+
+    // Use target dimensions if provided
+    if (targetWidth && targetHeight) {
+      width = targetWidth;
+      height = targetHeight;
+    }
+
+    let canvas: OffscreenCanvas | HTMLCanvasElement;
+    let ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D | null;
+
+    if (typeof OffscreenCanvas !== 'undefined') {
+      canvas = new OffscreenCanvas(width, height);
+      ctx = canvas.getContext('2d');
+    } else {
+      canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      ctx = canvas.getContext('2d');
+    }
+
+    if (!ctx) {
+      throw new Error('Could not get canvas context');
+    }
+
+    // Draw image to fit the target dimensions
+    ctx.drawImage(bitmap, 0, 0, width, height);
+
+    const pngBlob = await new Promise<Blob>((resolve, reject) => {
+      if (typeof OffscreenCanvas !== 'undefined' && canvas instanceof OffscreenCanvas) {
+        canvas.convertToBlob({ type: 'image/png' })
+          .then(resolve)
+          .catch(reject);
+      } else if (canvas instanceof HTMLCanvasElement) {
+        canvas.toBlob((b) => {
+          if (b) resolve(b);
+          else reject(new Error('Canvas to Blob failed'));
+        }, 'image/png');
+      } else {
+        reject(new Error('Unsupported canvas type'));
+      }
+    });
+
+    const arrayBuffer = await pngBlob.arrayBuffer();
+    return new Uint8Array(arrayBuffer);
+  }
+
   async downloadImageAsBase64(source: string | Blob): Promise<string> {
-    const blob = await this.downloadImage(source);
+    const blob = await this._fetchBlob(source);
 
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -24,8 +76,9 @@ class ImageModel {
       reader.readAsDataURL(blob);
     });
   }
+
   async downloadImageAsGrayscalePng(source: string | Blob, targetWidth?: number, targetHeight?: number): Promise<Uint8Array> {
-    const blob = await this.downloadImage(source);
+    const blob = await this._fetchBlob(source);
     const bitmap = await createImageBitmap(blob);
     let width = bitmap.width;
     let height = bitmap.height;
@@ -60,6 +113,9 @@ class ImageModel {
 
     const grayscaleData = new Uint8Array(width * height);
 
+    // Extract luminance with gamma adjustment into a high-precision buffer
+    const luminanceData = new Float32Array(width * height);
+
     for (let i = 0; i < width * height; i++) {
       const offset = i * 4;
       const r = data[offset];
@@ -69,13 +125,37 @@ class ImageModel {
       // Standard grayscale formula
       let luminance = 0.299 * r + 0.587 * g + 0.114 * b;
 
-      // Apply gamma correction to lift shadows and midtones.
-      // The glasses display tends to crush dark colors into pure black.
-      // A gamma > 1 brightens these areas. Tweak between 1.5 to 2.5 if needed.
+      // User preference: the darker the better (gamma < 1)
       const gamma = 0.5;
-      luminance = 255 * Math.pow(luminance / 255, 1 / gamma);
+      luminanceData[i] = 255 * Math.pow(luminance / 255, 1 / gamma);
+    }
 
-      grayscaleData[i] = luminance;
+    // Apply 16-level (4-bit) Floyd-Steinberg dithering for smooth gradients
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const i = y * width + x;
+        const oldPixel = luminanceData[i];
+
+        // Quantize to 16 levels (15 steps: 255 / 15 = 17)
+        const newPixel = Math.max(0, Math.min(255, Math.round(oldPixel / 17) * 17));
+        grayscaleData[i] = newPixel;
+
+        const quantError = oldPixel - newPixel;
+
+        // Diffuse the error to neighboring pixels (right, bottom-left, bottom, bottom-right)
+        if (x + 1 < width) {
+          luminanceData[i + 1] += quantError * 7 / 16;
+        }
+        if (y + 1 < height) {
+          if (x - 1 >= 0) {
+            luminanceData[(y + 1) * width + (x - 1)] += quantError * 3 / 16;
+          }
+          luminanceData[(y + 1) * width + x] += quantError * 5 / 16;
+          if (x + 1 < width) {
+            luminanceData[(y + 1) * width + (x + 1)] += quantError * 1 / 16;
+          }
+        }
+      }
     }
 
     return encodeGrayscalePng(width, height, grayscaleData);

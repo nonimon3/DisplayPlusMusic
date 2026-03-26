@@ -15,6 +15,7 @@ class Song {
     durationSeconds: number;
 
     albumArtRaw: Uint8Array
+    albumArtColor: Uint8Array;
 
     isPlaying: Boolean
     songChanged: Boolean
@@ -30,6 +31,7 @@ class Song {
         this.durationSeconds = 0;
 
         this.albumArtRaw = new Uint8Array();
+        this.albumArtColor = new Uint8Array();
 
         this.isPlaying = false;
         this.songChanged = false;
@@ -58,6 +60,9 @@ class Song {
     }
     addArtRaw(newArt: Uint8Array) {
         this.albumArtRaw = newArt;
+    }
+    addArtColor(newArt: Uint8Array) {
+        this.albumArtColor = newArt;
     }
     addisPlaying(newState: Boolean) {
         this.isPlaying = newState;

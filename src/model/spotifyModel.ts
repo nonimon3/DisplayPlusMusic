@@ -1,6 +1,6 @@
 import { SpotifyApi, Track, Episode } from "@spotify/web-api-ts-sdk";
 import Song, { song_placeholder } from '../model/songModel';
-import { downloadImageAsGrayscalePng } from "./imageModel";
+import { downloadImageAsGrayscalePng, downloadImage } from "./imageModel";
 import { storage } from '../utils/storage';
 import spotifyAuthModel from './spotifyAuthModel';
 import placeholderArt from '../Assets/placeholder_art.jpg';
@@ -198,7 +198,8 @@ class SpotifyModel {
                 newSong.addAlbum(track.album.name);
                 newSong.addDurationSeconds(track.duration_ms / 1000);
                 newSong.addProgressSeconds(result.progress_ms / 1000);
-                newSong.addArtRaw(await this.fetchAlbumArtPng(track));
+                newSong.addArtRaw(await this.fetchAlbumArtPngGray(track));
+                newSong.addArtColor(await this.fetchAlbumArtPngColor(track));
 
                 newSong.addChangedState(true);
 
@@ -259,12 +260,22 @@ class SpotifyModel {
         return new Song();
     }
 
-    async fetchAlbumArtPng(track: Track): Promise<Uint8Array> {
+    async fetchAlbumArtPngGray(track: Track): Promise<Uint8Array> {
         let images = track.album.images;
 
         if (images.length > 1) {
             const imageUrl = images[this.imageIndex].url;
             let art = await downloadImageAsGrayscalePng(imageUrl, 144, 144);
+            return art;
+        }
+        return new Uint8Array();
+    }
+    async fetchAlbumArtPngColor(track: Track): Promise<Uint8Array> {
+        let images = track.album.images;
+
+        if (images.length > 1) {
+            const imageUrl = images[this.imageIndex].url;
+            let art = await downloadImage(imageUrl, 144, 144);
             return art;
         }
         return new Uint8Array();

@@ -52,7 +52,7 @@ class SpotifyPresenter {
                 if (this.lastBlobUrl) {
                     URL.revokeObjectURL(this.lastBlobUrl);
                 }
-                const blob = new Blob([song.albumArtRaw] as BlobPart[], { type: 'image/png' });
+                const blob = new Blob([song.albumArtColor] as BlobPart[], { type: 'image/png' });
                 this.lastBlobUrl = URL.createObjectURL(blob);
                 imgElement.src = this.lastBlobUrl;
             }
