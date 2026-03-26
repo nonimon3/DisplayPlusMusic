@@ -103,8 +103,20 @@ async function createView(songIn: Song) {
         // If page is not created, try to create it.
         if (!isPageCreated) {
             const container = new CreateStartUpPageContainer(containerConfig);
-            const result = await bridge.createStartUpPageContainer(container);
+            let result = await bridge.createStartUpPageContainer(container);
             console.log('createStartUpPageContainer result:', result);
+
+            if (result === 1) {
+                // Result 1 (invalid) likely means the container already exists from a previous
+                // hot-reload. Rebuilding it seems to break image rendering on the physical glasses.
+                // We should shut it down and recreate it fresh.
+                console.log('Container already exists (1). Shutting down and recreating...');
+                await bridge.shutDownPageContainer(0); // 0 = normal exit
+                await new Promise(r => setTimeout(r, 200)); // give the glasses a beat to clear
+
+                result = await bridge.createStartUpPageContainer(container);
+                console.log('retry createStartUpPageContainer result:', result);
+            }
 
             if (result === 0) {
                 console.log('Container created successfully');
@@ -114,14 +126,9 @@ async function createView(songIn: Song) {
                     textObject: containerConfig.textObject?.map((t: any) => ({ ...t, content: '' }))
                 };
                 lastConfig = JSON.stringify(layoutConfig);
-            } else if (result === 1) {
-                // Result 1 (invalid) likely means container already exists.
-                // Mark as created so we proceed to rebuild next.
-                console.log('Container creation returned invalid (1), assuming already exists. Switching to rebuild mode.');
-                isPageCreated = true;
             } else {
                 console.error('Failed to create container:', result);
-                return; // Exit if a critical error occurred (oversize, out of memory, etc.)
+                return; // Exit if a critical error occurred
             }
         }
 
