@@ -2,29 +2,42 @@ import { encodeGrayscalePng } from '../Scripts/pngEncoder';
 
 class ImageModel {
   async _fetchBlob(source: string | Blob): Promise<Blob> {
+    console.log(`[ImageModel] _fetchBlob started for source: ${typeof source === 'string' ? source : 'Blob'}`);
     if (source instanceof Blob) {
+      console.log(`[ImageModel] _fetchBlob received a Blob directly of size ${source.size}`);
       return source;
     }
 
-    const response = await fetch(source);
+    try {
+      const response = await fetch(source);
+      console.log(`[ImageModel] fetch response status: ${response.status} ${response.statusText}`);
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch image: ${response.statusText}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch image: ${response.statusText}`);
+      }
+
+      const blob = await response.blob();
+      console.log(`[ImageModel] _fetchBlob successfully built blob of size: ${blob.size}`);
+      return blob;
+    } catch (error) {
+      console.error(`[ImageModel] Error in _fetchBlob:`, error);
+      throw error;
     }
-
-    return await response.blob();
   }
 
   async downloadImage(source: string | Blob, targetWidth?: number, targetHeight?: number): Promise<Uint8Array> {
+    console.log(`[ImageModel] downloadImage started (target: ${targetWidth}x${targetHeight})`);
     const blob = await this._fetchBlob(source);
     const bitmap = await createImageBitmap(blob);
     let width = bitmap.width;
     let height = bitmap.height;
+    console.log(`[ImageModel] downloadImage original bitmap dimensions: ${width}x${height}`);
 
     // Use target dimensions if provided
     if (targetWidth && targetHeight) {
       width = targetWidth;
       height = targetHeight;
+      console.log(`[ImageModel] downloadImage resizing to target dimensions: ${width}x${height}`);
     }
 
     let canvas: OffscreenCanvas | HTMLCanvasElement;
@@ -48,6 +61,7 @@ class ImageModel {
     ctx.drawImage(bitmap, 0, 0, width, height);
 
     const pngBlob = await new Promise<Blob>((resolve, reject) => {
+      console.log(`[ImageModel] downloadImage generating pngBlob...`);
       if (typeof OffscreenCanvas !== 'undefined' && canvas instanceof OffscreenCanvas) {
         canvas.convertToBlob({ type: 'image/png' })
           .then(resolve)
@@ -62,31 +76,44 @@ class ImageModel {
       }
     });
 
+    console.log(`[ImageModel] downloadImage pngBlob generated, size: ${pngBlob.size}`);
+
     const arrayBuffer = await pngBlob.arrayBuffer();
     return new Uint8Array(arrayBuffer);
   }
 
   async downloadImageAsBase64(source: string | Blob): Promise<string> {
+    console.log(`[ImageModel] downloadImageAsBase64 started`);
     const blob = await this._fetchBlob(source);
 
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = reject;
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        console.log(`[ImageModel] downloadImageAsBase64 finished reading data URL (length: ${result.length})`);
+        resolve(result);
+      };
+      reader.onerror = (e) => {
+        console.error(`[ImageModel] Error in downloadImageAsBase64:`, e);
+        reject(e);
+      };
       reader.readAsDataURL(blob);
     });
   }
 
   async downloadImageAsGrayscalePng(source: string | Blob, targetWidth?: number, targetHeight?: number): Promise<Uint8Array> {
+    console.log(`[ImageModel] downloadImageAsGrayscalePng started (target: ${targetWidth}x${targetHeight})`);
     const blob = await this._fetchBlob(source);
     const bitmap = await createImageBitmap(blob);
     let width = bitmap.width;
     let height = bitmap.height;
+    console.log(`[ImageModel] downloadImageAsGrayscalePng original bitmap dimensions: ${width}x${height}`);
 
     // Use target dimensions if provided
     if (targetWidth && targetHeight) {
       width = targetWidth;
       height = targetHeight;
+      console.log(`[ImageModel] downloadImageAsGrayscalePng resizing to target dimensions: ${width}x${height}`);
     }
 
     let canvas: OffscreenCanvas | HTMLCanvasElement;
@@ -158,7 +185,10 @@ class ImageModel {
       }
     }
 
-    return encodeGrayscalePng(width, height, grayscaleData);
+    console.log(`[ImageModel] downloadImageAsGrayscalePng encoding grayscale png...`);
+    const result = encodeGrayscalePng(width, height, grayscaleData);
+    console.log(`[ImageModel] downloadImageAsGrayscalePng completed, returning array of size: ${result.length}`);
+    return result;
   }
 }
 

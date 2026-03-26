@@ -47,14 +47,23 @@ class SpotifyPresenter {
         document.getElementById('song-total-time')!.textContent = formatTime(song.durationSeconds);
 
         if (song.songID !== this.lastWebSongID) {
+            console.log(`[SpotifyPresenter] updateHTML: songID changed to ${song.songID}, updating album art...`);
             const imgElement = document.getElementById('album-art') as HTMLImageElement;
             if (imgElement && song.albumArtRaw.length > 0) {
+                console.log(`[SpotifyPresenter] updateHTML: song.albumArtColor size ${song.albumArtColor.length}`);
                 if (this.lastBlobUrl) {
+                    console.log(`[SpotifyPresenter] updateHTML: revoking last object URL ${this.lastBlobUrl}`);
                     URL.revokeObjectURL(this.lastBlobUrl);
                 }
                 const blob = new Blob([song.albumArtColor] as BlobPart[], { type: 'image/png' });
                 this.lastBlobUrl = URL.createObjectURL(blob);
+                console.log(`[SpotifyPresenter] updateHTML: created new object URL ${this.lastBlobUrl} of blob size ${blob.size}`);
                 imgElement.src = this.lastBlobUrl;
+
+                imgElement.onload = () => console.log(`[SpotifyPresenter] album-art img loaded successfully`);
+                imgElement.onerror = (e) => console.error(`[SpotifyPresenter] album-art img failed to load error:`, e);
+            } else {
+                console.warn(`[SpotifyPresenter] updateHTML: imgElement missing or albumArtRaw is empty`);
             }
             this.lastWebSongID = song.songID;
         }

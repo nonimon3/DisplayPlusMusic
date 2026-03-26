@@ -262,22 +262,36 @@ class SpotifyModel {
 
     async fetchAlbumArtPngGray(track: Track): Promise<Uint8Array> {
         let images = track.album.images;
+        console.log(`[SpotifyModel] fetchAlbumArtPngGray called for track ${track.name}, images available: ${images.length}`);
 
         if (images.length > 1) {
             const imageUrl = images[this.imageIndex].url;
+            console.log(`[SpotifyModel] fetchAlbumArtPngGray selected image URL: ${imageUrl}`);
             let art = await downloadImageAsGrayscalePng(imageUrl, 144, 144);
             return art;
+        } else if (images.length === 1) {
+            console.log(`[SpotifyModel] fetchAlbumArtPngGray selected image URL (fallback 0): ${images[0].url}`);
+            let art = await downloadImageAsGrayscalePng(images[0].url, 144, 144);
+            return art;
         }
+        console.warn(`[SpotifyModel] fetchAlbumArtPngGray: no images found for track ${track.name}`);
         return new Uint8Array();
     }
     async fetchAlbumArtPngColor(track: Track): Promise<Uint8Array> {
         let images = track.album.images;
+        console.log(`[SpotifyModel] fetchAlbumArtPngColor called for track ${track.name}, images available: ${images.length}`);
 
         if (images.length > 1) {
             const imageUrl = images[this.imageIndex].url;
+            console.log(`[SpotifyModel] fetchAlbumArtPngColor selected image URL: ${imageUrl}`);
             let art = await downloadImage(imageUrl, 144, 144);
             return art;
+        } else if (images.length === 1) {
+            console.log(`[SpotifyModel] fetchAlbumArtPngColor selected image URL (fallback 0): ${images[0].url}`);
+            let art = await downloadImage(images[0].url, 144, 144);
+            return art;
         }
+        console.warn(`[SpotifyModel] fetchAlbumArtPngColor: no images found for track ${track.name}`);
         return new Uint8Array();
     }
 
