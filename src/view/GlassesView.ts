@@ -70,7 +70,7 @@ async function createView(songIn: Song) {
             height: 132,
             borderRadius: 6,
             borderWidth: 1,
-            paddingLength: 5,
+            paddingLength: 22,
             containerID: 3,
             containerName: 'songInfo',
             content: songInfoText,
