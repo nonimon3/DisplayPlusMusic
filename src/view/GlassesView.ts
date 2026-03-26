@@ -64,7 +64,7 @@ async function createView(songIn: Song) {
 
         const songInfoText = songIn.title + "\n" + songIn.artist + "\n" + songIn.album;
         const songInfo = new TextContainerProperty({
-            xPosition: 244,
+            xPosition: 234,
             yPosition: 0,
             width: MAX_WIDTH - (244),
             height: 132,
