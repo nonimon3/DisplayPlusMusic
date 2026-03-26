@@ -264,7 +264,7 @@ class SpotifyModel {
 
         if (images.length > 1) {
             const imageUrl = images[this.imageIndex].url;
-            let art = await downloadImageAsGrayscalePng(imageUrl, 132, 132);
+            let art = await downloadImageAsGrayscalePng(imageUrl, 144, 144);
             return art;
         }
         return new Uint8Array();

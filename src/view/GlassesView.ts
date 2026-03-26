@@ -38,8 +38,8 @@ async function createView(songIn: Song) {
         const imageContainer = new ImageContainerProperty({
             xPosition: 0,
             yPosition: 0,
-            width: 100,
-            height: 100,
+            width: 144,
+            height: 144,
             containerID: 1,
             containerName: 'album-art',
         });
@@ -70,6 +70,7 @@ async function createView(songIn: Song) {
             height: 132,
             borderRadius: 6,
             borderWidth: 1,
+            paddingLength: 5,
             containerID: 3,
             containerName: 'songInfo',
             content: songInfoText,
