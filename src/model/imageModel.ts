@@ -72,7 +72,7 @@ class ImageModel {
       // Apply gamma correction to lift shadows and midtones.
       // The glasses display tends to crush dark colors into pure black.
       // A gamma > 1 brightens these areas. Tweak between 1.5 to 2.5 if needed.
-      const gamma = 1.0;
+      const gamma = 0.5;
       luminance = 255 * Math.pow(luminance / 255, 1 / gamma);
 
       grayscaleData[i] = luminance;
