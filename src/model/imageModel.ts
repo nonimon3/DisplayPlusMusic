@@ -67,7 +67,7 @@ class ImageModel {
       const b = data[offset + 2];
 
       // Standard grayscale formula
-      let luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+      let luminance = 0.324 * r + 0.537 * g + 0.139 * b;
 
       // Apply gamma correction to lift shadows and midtones.
       // The glasses display tends to crush dark colors into pure black.
