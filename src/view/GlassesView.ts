@@ -115,6 +115,8 @@ async function createView(songIn: Song) {
                 };
                 lastConfig = JSON.stringify(layoutConfig);
             } else if (result === 1) {
+                // Result 1 (invalid) likely means container already exists.
+                // Mark as created so we proceed to rebuild next.
                 console.log('Container creation returned invalid (1), assuming already exists. Switching to rebuild mode.');
                 isPageCreated = true;
             } else {
@@ -162,7 +164,6 @@ async function createView(songIn: Song) {
                         content: playbackBarText,
                     })
                     await bridge.textContainerUpgrade(upgrade2);
-
                 } catch (e) {
                     console.error("Failed to upgrade text container:", e);
                 }
@@ -171,21 +172,10 @@ async function createView(songIn: Song) {
             //console.log(`Album art check - current length: ${songIn.albumArtRaw?.length}, songID: ${songIn.songID}, lastSongID: ${lastSongID}`);
             if (songIn.albumArtRaw && songIn.albumArtRaw.length > 0 && songIn.songID !== lastSongID) {
                 try {
-                    // Manually convert the Uint8Array to a base64 string here. 
-                    // The Even Web SDK `Array.from()` default explodes the IPC JSON payload size (Array of 50k ints = ~200kb string).
-                    // A base64 string drops the payload down to 70kb, which respects iOS WKWebView/BLE postMessage MTU limits!
-                    let binary = '';
-                    const bytes = songIn.albumArtRaw;
-                    const len = bytes.byteLength;
-                    for (let i = 0; i < len; i++) {
-                        binary += String.fromCharCode(bytes[i]);
-                    }
-                    const base64String = btoa(binary);
-
                     await bridge.updateImageRawData(new ImageRawDataUpdate({
                         containerID: 1,
                         containerName: 'album-art',
-                        imageData: base64String,
+                        imageData: Array.from(songIn.albumArtRaw),
                     }));
                     console.log("Image data updated successfully");
                     lastSongID = songIn.songID;
