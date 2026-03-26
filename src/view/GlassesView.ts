@@ -46,7 +46,7 @@ async function createView(songIn: Song) {
 
         const buttons = new ListContainerProperty({
             xPosition: 154,
-            yPosition: 12,
+            yPosition: 0,
             width: 80,
             height: 144,
             borderWidth: 0,
@@ -65,11 +65,11 @@ async function createView(songIn: Song) {
         const songInfoText = songIn.title + "\n" + songIn.artist + "\n" + songIn.album;
         const songInfo = new TextContainerProperty({
             xPosition: 244,
-            yPosition: 24,
+            yPosition: 0,
             width: MAX_WIDTH - (244),
-            height: 90,
+            height: 144,
             borderRadius: 6,
-            borderWidth: 0,
+            borderWidth: 1,
             containerID: 3,
             containerName: 'songInfo',
             content: songInfoText,
