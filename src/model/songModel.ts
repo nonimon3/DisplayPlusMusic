@@ -120,7 +120,7 @@ song_placeholder.addAlbum("aaaaaaaaaaaaaaaaaaaaaaaaaaaa");
 song_placeholder.addID("0");
 song_placeholder.addProgressSeconds(0);
 song_placeholder.addDurationSeconds(60);
-song_placeholder.addArtRaw(new Uint8Array()); //await downloadImageAsGrayscalePng(placeholderArtUrl, 144, 144)
+song_placeholder.addArtRaw(new Uint8Array(await downloadImageAsGrayscalePng(placeholderArtUrl, 132, 132)));
 song_placeholder.addisPlaying(false);
 song_placeholder.addChangedState(false);
 
