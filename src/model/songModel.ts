@@ -14,7 +14,7 @@ class Song {
     progressSeconds: number;
     durationSeconds: number;
 
-    albumArtRaw: Uint8Array
+    albumArtRaw: Uint8Array;
     albumArtColor: Uint8Array;
 
     isPlaying: Boolean

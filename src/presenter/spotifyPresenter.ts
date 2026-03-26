@@ -55,7 +55,7 @@ class SpotifyPresenter {
                     console.log(`[SpotifyPresenter] updateHTML: revoking last object URL ${this.lastBlobUrl}`);
                     URL.revokeObjectURL(this.lastBlobUrl);
                 }
-                const blob = new Blob([song.albumArtColor] as BlobPart[], { type: 'image/png' });
+                const blob = new Blob([song.albumArtRaw] as BlobPart[], { type: 'image/png' });
                 this.lastBlobUrl = URL.createObjectURL(blob);
                 console.log(`[SpotifyPresenter] updateHTML: created new object URL ${this.lastBlobUrl} of blob size ${blob.size}`);
                 imgElement.src = this.lastBlobUrl;
