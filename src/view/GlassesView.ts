@@ -103,20 +103,8 @@ async function createView(songIn: Song) {
         // If page is not created, try to create it.
         if (!isPageCreated) {
             const container = new CreateStartUpPageContainer(containerConfig);
-            let result = await bridge.createStartUpPageContainer(container);
+            const result = await bridge.createStartUpPageContainer(container);
             console.log('createStartUpPageContainer result:', result);
-
-            if (result === 1) {
-                // Result 1 (invalid) likely means the container already exists from a previous
-                // hot-reload. Rebuilding it seems to break image rendering on the physical glasses.
-                // We should shut it down and recreate it fresh.
-                console.log('Container already exists (1). Shutting down and recreating...');
-                await bridge.shutDownPageContainer(0); // 0 = normal exit
-                await new Promise(r => setTimeout(r, 200)); // give the glasses a beat to clear
-
-                result = await bridge.createStartUpPageContainer(container);
-                console.log('retry createStartUpPageContainer result:', result);
-            }
 
             if (result === 0) {
                 console.log('Container created successfully');
@@ -126,9 +114,12 @@ async function createView(songIn: Song) {
                     textObject: containerConfig.textObject?.map((t: any) => ({ ...t, content: '' }))
                 };
                 lastConfig = JSON.stringify(layoutConfig);
+            } else if (result === 1) {
+                console.log('Container creation returned invalid (1), assuming already exists. Switching to rebuild mode.');
+                isPageCreated = true;
             } else {
                 console.error('Failed to create container:', result);
-                return; // Exit if a critical error occurred
+                return; // Exit if a critical error occurred (oversize, out of memory, etc.)
             }
         }
 
@@ -180,10 +171,21 @@ async function createView(songIn: Song) {
             //console.log(`Album art check - current length: ${songIn.albumArtRaw?.length}, songID: ${songIn.songID}, lastSongID: ${lastSongID}`);
             if (songIn.albumArtRaw && songIn.albumArtRaw.length > 0 && songIn.songID !== lastSongID) {
                 try {
+                    // Manually convert the Uint8Array to a base64 string here. 
+                    // The Even Web SDK `Array.from()` default explodes the IPC JSON payload size (Array of 50k ints = ~200kb string).
+                    // A base64 string drops the payload down to 70kb, which respects iOS WKWebView/BLE postMessage MTU limits!
+                    let binary = '';
+                    const bytes = songIn.albumArtRaw;
+                    const len = bytes.byteLength;
+                    for (let i = 0; i < len; i++) {
+                        binary += String.fromCharCode(bytes[i]);
+                    }
+                    const base64String = btoa(binary);
+
                     await bridge.updateImageRawData(new ImageRawDataUpdate({
                         containerID: 1,
                         containerName: 'album-art',
-                        imageData: Array.from(songIn.albumArtRaw),
+                        imageData: base64String,
                     }));
                     console.log("Image data updated successfully");
                     lastSongID = songIn.songID;
