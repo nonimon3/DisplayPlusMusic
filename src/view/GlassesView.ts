@@ -79,7 +79,7 @@ async function createView(songIn: Song) {
 
 
         const playbackBarText = "    " + formatTime(songIn.progressSeconds) + " / " + formatTime(songIn.durationSeconds) + "\n" + songIn.createPlaybackBar(MAX_WIDTH) + "\n  " + lyricsPresenter.currentLine + "\n    " + lyricsPresenter.nextLine;
-        // const playbackBarText = "<".repeat(57);
+        // const playbackBarText = "[".repeat(82);
         const playbackBar = new TextContainerProperty({
             xPosition: 0,
             yPosition: 150,

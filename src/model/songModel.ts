@@ -93,13 +93,14 @@ class Song {
         let maxDashes = 57;
         let maxVerticalBar = 144;
         let maxArrows = 57;
+        let maxBrackets = 82;
 
         let underscoreWidth = maxWidth / maxUnderscores;
         let dashWidth = maxWidth / maxDashes;
         let barWidth = maxWidth / maxVerticalBar;
-        let arrowWidth = maxWidth / maxArrows;
+        let bracketsWidth = maxWidth / maxBrackets;
 
-        let maxWidthTrue = maxWidth - (dashWidth * 2) - (this.isPlaying ? 0 : barWidth * 3);
+        let maxWidthTrue = maxWidth - (bracketsWidth * 2) - (this.isPlaying ? 0 : barWidth * 3);
 
         let maxDashCount = Math.floor(progressPercent * maxDashes);
         let maxUnderscoreCount = Math.floor((1 - progressPercent) * maxUnderscores);
