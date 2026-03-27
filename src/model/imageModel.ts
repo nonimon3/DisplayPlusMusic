@@ -101,6 +101,17 @@ class ImageModel {
     });
   }
 
+  async uint8ArrayToBase64(buffer: Uint8Array): Promise<string> {
+    const blob = new Blob([buffer as any], { type: 'image/png' });
+
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
   async downloadImageAsGrayscalePng(source: string | Blob, targetWidth?: number, targetHeight?: number): Promise<Uint8Array> {
     console.log(`[ImageModel] downloadImageAsGrayscalePng started (target: ${targetWidth}x${targetHeight})`);
     const blob = await this._fetchBlob(source);
@@ -192,7 +203,8 @@ class ImageModel {
   }
 }
 
-const imageModel = new ImageModel
+const imageModel = new ImageModel();
 export const downloadImage = imageModel.downloadImage.bind(imageModel);
 export const downloadImageAsBase64 = imageModel.downloadImageAsBase64.bind(imageModel);
 export const downloadImageAsGrayscalePng = imageModel.downloadImageAsGrayscalePng.bind(imageModel);
+export const uint8ArrayToBase64 = imageModel.uint8ArrayToBase64.bind(imageModel);

@@ -3,8 +3,8 @@ import lyricsPresenter from "./lyricsPresenter";
 import { createView } from "../view/GlassesView";
 
 class PollingPresenter {
-    pollingtimeAPIs: number = 500;
-    pollingtimeLyrics: number = 100;
+    pollingtimeAPIs: number = 500; //ms
+    pollingtimeLyrics: number = 100; //ms
     private isPolling = false;
     private apiTimeout: number | undefined;
     private lyricsTimeout: number | undefined;
@@ -49,9 +49,8 @@ class PollingPresenter {
 
         try {
             if (spotifyPresenter.currentSong) {
-                // Approximate fast progress updates between actual API fetches
                 if (spotifyPresenter.currentSong.isPlaying) {
-                    spotifyPresenter.currentSong.progressSeconds += (this.pollingtimeLyrics / 1000);
+                    spotifyPresenter.currentSong.progressSeconds += (this.pollingtimeLyrics / 1000); //adding buffer to compensate for BLE lag
                 }
 
                 await lyricsPresenter.updateLyricsLine();

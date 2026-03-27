@@ -20,7 +20,7 @@
     "preview": "vite preview",
     "pack": "npm run build && evenhub pack app.json dist",
     "qr": "evenhub qr -p 5173 --path \"/\" --http",
-    "sim": "evenhub-simulator localhost:5173 && vite"
+    "sim": "vite && evenhub-simulator http://localhost:5173"
   },
   "dependencies": {
     "@evenrealities/even_hub_sdk": "^0.0.9",

@@ -35,12 +35,12 @@ async function createView(songIn: Song) {
     try {
         const bridge = await waitForEvenAppBridge();
 
-        const imageContainer = new ImageContainerProperty({
+        const albumArtContainer = new ImageContainerProperty({
             xPosition: 0,
             yPosition: 0,
-            width: 144,
-            height: 144,
-            containerID: 1,
+            width: 100,
+            height: 100,
+            containerID: 0,
             containerName: 'album-art',
         });
 
@@ -84,7 +84,7 @@ async function createView(songIn: Song) {
             xPosition: 0,
             yPosition: 150,
             width: MAX_WIDTH,
-            height: MAX_HEIGHT - 160, // Fits perfectly on screen without oversize error
+            height: MAX_HEIGHT - 150,
             borderRadius: 6,
             borderWidth: 0,
             containerID: 4,
@@ -97,7 +97,7 @@ async function createView(songIn: Song) {
             containerTotalNum: 4,
             textObject: [songInfo, playbackBar],
             listObject: [buttons],
-            imageObject: [imageContainer],
+            imageObject: [albumArtContainer],
         };
 
         // If page is not created, try to create it.
@@ -168,16 +168,18 @@ async function createView(songIn: Song) {
                     console.error("Failed to upgrade text container:", e);
                 }
             }
-            // Only update image if it has changed
+
             //console.log(`Album art check - current length: ${songIn.albumArtRaw?.length}, songID: ${songIn.songID}, lastSongID: ${lastSongID}`);
             if (songIn.albumArtRaw && songIn.albumArtRaw.length > 0 && songIn.songID !== lastSongID) {
                 try {
-                    await bridge.updateImageRawData(new ImageRawDataUpdate({
-                        containerID: 1,
+                    const imageUpdate = new ImageRawDataUpdate({
+                        containerID: 0,
                         containerName: 'album-art',
-                        imageData: Array.from(songIn.albumArtRaw),
-                    }));
-                    console.log("Image data updated successfully");
+                        imageData: songIn.albumArtRaw,
+                    })
+                    console.log(`Image update: size=${songIn.albumArtRaw.length} bytes, type=${songIn.albumArtRaw.constructor.name}, first4=[${songIn.albumArtRaw.slice(0, 4).join(',')}]`);
+                    const result = await bridge.updateImageRawData(imageUpdate);
+                    console.log("Image data update result:", result, typeof result);
                     lastSongID = songIn.songID;
                 } catch (e) {
                     console.error("Failed to update image data:", e);

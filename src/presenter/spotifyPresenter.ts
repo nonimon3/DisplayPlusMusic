@@ -9,17 +9,8 @@ class SpotifyPresenter {
     public nextSong?: Song;
 
     constructor() {
-        // Optional: Stop polling when the tab is hidden to save resources
-        document.addEventListener('visibilitychange', () => {
-            if (document.hidden) {
-                pollingPresenter.stopPolling();
-            } else {
-                pollingPresenter.startPolling();
-            }
-        });
+        pollingPresenter.startPolling();
     }
-
-    // Polling logic moved to pollingPresenter.ts
 
     async pollSingle() {
         try {
