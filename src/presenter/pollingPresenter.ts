@@ -3,8 +3,8 @@ import lyricsPresenter from "./lyricsPresenter";
 import { createView } from "../view/GlassesView";
 
 class PollingPresenter {
-    pollingtimeAPIs: number = 500; //ms
-    pollingtimeLyrics: number = 150; //ms
+    pollingtimeAPIs: number = 300; //ms
+    pollingtimeLyrics: number = 10; //ms
     private isPolling = false;
     private apiTimeout: number | undefined;
     private lyricsTimeout: number | undefined;
@@ -47,14 +47,15 @@ class PollingPresenter {
     private async pollLyrics() {
         if (!this.isPolling) return;
 
+        let song = spotifyPresenter.currentSong;
         try {
-            if (spotifyPresenter.currentSong) {
-                if (spotifyPresenter.currentSong.isPlaying) {
-                    spotifyPresenter.currentSong.progressSeconds += (this.pollingtimeLyrics / 1000); //adding buffer to compensate for BLE lag
+            if (song) {
+                if (song.isPlaying) {
+                    song.progressSeconds += (100); //adding buffer to compensate for BLE lag
                 }
 
                 await lyricsPresenter.updateLyricsLine();
-                createView(spotifyPresenter.currentSong);
+                createView(song);
             }
         } catch (error) {
             console.error("Error polling lyrics:", error);

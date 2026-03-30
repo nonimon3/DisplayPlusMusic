@@ -183,6 +183,7 @@ class SpotifyModel {
                 newSong.addAlbum(track.album.name);
                 newSong.addDurationSeconds(track.duration_ms / 1000);
                 newSong.addProgressSeconds(result.progress_ms / 1000);
+                console.log("song time " + track.duration_ms / 1000 + " - " + result.progress_ms / 1000)
                 newSong.addArtRaw(await this.fetchAlbumArtPngGray(track));
                 newSong.addArtColor(await this.fetchAlbumArtPngColor(track));
 
