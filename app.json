@@ -1,8 +1,8 @@
 {
-  "package_id": "com.oliemanq.displayplusmusic",
+  "package_id": "com.oliemanq.displayplusmusictest11",
   "edition": "202601",
   "name": "DisplayPlus Music",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "min_app_version": "2.1.0",
   "min_sdk_version": "0.0.9",
   "entrypoint": "index.html",
@@ -18,7 +18,10 @@
         "https://apresolve.spotify.com/*",
         "https://gue1-spclient.spotify.com/*",
         "https://accounts.scdn.co/*",
-        "https://sdk.scdn.co/*"
+        "https://sdk.scdn.co/*",
+        "https://i.scdn.co/*",
+        "https://*.spotifycdn.com/*",
+        "https://lrclib.net/*"
       ]
     }
   ],

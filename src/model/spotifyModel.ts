@@ -3,8 +3,6 @@ import Song, { song_placeholder } from '../model/songModel';
 import { downloadImageAsGrayscalePng, downloadImage } from "./imageModel";
 import { storage } from '../utils/storage';
 import spotifyAuthModel from './spotifyAuthModel';
-import placeholderArt from '../Assets/placeholder_art.jpg';
-import { fetchLyrics } from "./lyricsModel";
 
 let spotifysdk!: SpotifyApi;
 
@@ -32,9 +30,6 @@ async function initSpotify(): Promise<void> {
         console.error("User not authenticated yet");
 
     } else {
-        // Assign dynamically
-        spotifyModel.CLIENT_ID = clientId;
-
         console.log(clientId + " - " + clientSecret)
         const popup = document.getElementById('spotify-auth-popup');
         if (popup) {
@@ -114,15 +109,6 @@ async function initSpotify(): Promise<void> {
 export { initSpotify };
 
 class SpotifyModel {
-    get REDIRECT_URI() {
-        if (window.location.hostname === '127.0.0.1') {
-            return "http://127.0.0.1:5173/";
-        }
-        return "https://oliemanq.github.io/DisplayPlusMusic/";
-    }
-    CLIENT_ID = "";
-    SCOPE = ['user-modify-playback-state', 'user-read-playback-state'];
-
     currentSong = new Song();
     lastSong = new Song();
 
@@ -266,11 +252,11 @@ class SpotifyModel {
         if (images.length > 1) {
             const imageUrl = images[this.imageIndex].url;
             console.log(`[SpotifyModel] fetchAlbumArtPngGray selected image URL: ${imageUrl}`);
-            let art = await downloadImageAsGrayscalePng(imageUrl, 144, 144);
+            let art = await downloadImageAsGrayscalePng(imageUrl, 100, 100);
             return art;
         } else if (images.length === 1) {
             console.log(`[SpotifyModel] fetchAlbumArtPngGray selected image URL (fallback 0): ${images[0].url}`);
-            let art = await downloadImageAsGrayscalePng(images[0].url, 144, 144);
+            let art = await downloadImageAsGrayscalePng(images[0].url, 100, 100);
             return art;
         }
         console.warn(`[SpotifyModel] fetchAlbumArtPngGray: no images found for track ${track.name}`);
@@ -283,11 +269,11 @@ class SpotifyModel {
         if (images.length > 1) {
             const imageUrl = images[this.imageIndex].url;
             console.log(`[SpotifyModel] fetchAlbumArtPngColor selected image URL: ${imageUrl}`);
-            let art = await downloadImage(imageUrl, 144, 144);
+            let art = await downloadImage(imageUrl, 132, 132);
             return art;
         } else if (images.length === 1) {
             console.log(`[SpotifyModel] fetchAlbumArtPngColor selected image URL (fallback 0): ${images[0].url}`);
-            let art = await downloadImage(images[0].url, 144, 144);
+            let art = await downloadImage(images[0].url, 132, 132);
             return art;
         }
         console.warn(`[SpotifyModel] fetchAlbumArtPngColor: no images found for track ${track.name}`);

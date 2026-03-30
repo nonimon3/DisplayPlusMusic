@@ -9,65 +9,8 @@
 </head>
 
 <body>
-    <!-- Main.ts handles Spotify auth + glasses view setup on load -->
+    <!-- handles starting logic and starts button listeners-->
     <script type="module" src="/src/Main.ts"></script>
-
-
-    <script type="module">
-        import viewPresenter from './src/presenter/viewPresenter.ts';
-        import { storage } from './src/utils/storage.ts'
-
-        document.getElementById('skip-track').addEventListener('click', () => {
-            viewPresenter.forwardTrack();
-        })
-        document.getElementById('play-pause').addEventListener('click', () => {
-            viewPresenter.playPauseTrack();
-        })
-        document.getElementById('previous-track').addEventListener('click', () => {
-            viewPresenter.backTrack();
-        })
-
-        document.getElementById('save-auth').addEventListener('click', async () => {
-            viewPresenter.saveAndAuthorize();
-        })
-        document.getElementById('clear-local-refresh-token').addEventListener('click', async () => {
-            viewPresenter.clearLocalStorage();
-        })
-
-        document.getElementById('client-id').value = await storage.getItem('spotify_client_id');
-        document.getElementById('client-secret').value = await storage.getItem('spotify_client_secret');
-
-        // Make popup links copyable
-        document.querySelectorAll('.popup-link').forEach(link => {
-            link.addEventListener('click', async (e) => {
-                const target = e.target;
-                const textToCopy = target.innerText.trim();
-                const originalText = textToCopy;
-
-                try {
-                    if (navigator.clipboard && navigator.clipboard.writeText && window.isSecureContext) {
-                        await navigator.clipboard.writeText(textToCopy);
-                    } else {
-                        // Fallback for HTTP / non-secure contexts
-                        const textArea = document.createElement("textarea");
-                        textArea.value = textToCopy;
-                        document.body.appendChild(textArea);
-                        textArea.focus();
-                        textArea.select();
-                        document.execCommand('copy');
-                        document.body.removeChild(textArea);
-                    }
-
-                    target.innerText = "Copied!";
-                    setTimeout(() => {
-                        target.innerText = originalText;
-                    }, 1000);
-                } catch (err) {
-                    console.error('Failed to copy', err);
-                }
-            });
-        });
-    </script>
 
     <!-- Main UI -->
     <span id="album-art-container" class="container">
