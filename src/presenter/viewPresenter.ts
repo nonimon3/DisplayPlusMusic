@@ -16,6 +16,7 @@ class ViewPresenter {
     }
 
     async saveAndAuthorize() {
+        alert("Save pressed");
         const clientId = (document.getElementById('client-id') as HTMLInputElement).value.trim();
         const clientSecret = (document.getElementById('client-secret') as HTMLInputElement).value.trim();
 
