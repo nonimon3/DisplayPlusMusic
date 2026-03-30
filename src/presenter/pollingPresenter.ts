@@ -14,7 +14,7 @@ class PollingPresenter {
         if (this.isPolling) return;
         this.isPolling = true;
         this.pollAPIs();
-        this.pollLyrics();
+        this.pollQuick();
     }
 
     stopPolling() {
@@ -47,7 +47,7 @@ class PollingPresenter {
         }
     }
 
-    private async pollLyrics() {
+    private async pollQuick() {
         if (!this.isPolling) return;
 
         let song = spotifyPresenter.currentSong;
@@ -65,7 +65,7 @@ class PollingPresenter {
         }
 
         if (this.isPolling) {
-            this.lyricsTimeout = window.setTimeout(() => this.pollLyrics(), this.pollingtimeLyrics);
+            this.lyricsTimeout = window.setTimeout(() => this.pollQuick(), this.pollingtimeLyrics);
         }
     }
 }
