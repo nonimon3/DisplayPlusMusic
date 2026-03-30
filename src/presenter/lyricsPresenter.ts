@@ -72,10 +72,10 @@ class LyricsPresenter {
             }
         }
 
-        // Bluetooth delay in seconds (50ms = 0.05s)
-        const BLUETOOTH_DELAY = 0.5;
+        // Bluetooth delay in seconds (100ms = 0.1s)
+        const BLUETOOTH_DELAY = 0.075;
 
-        const progress = Math.max(0, spotifyPresenter.currentSong.progressSeconds + BLUETOOTH_DELAY);
+        const progress = spotifyPresenter.currentSong.progressSeconds + BLUETOOTH_DELAY;
         let currentIndex = -1;
 
         for (let i = 0; i < parsedLines.length; i++) {
