@@ -15,6 +15,8 @@ class LyricsPresenter {
     currentLine: string = "";
     nextLine: string = "";
 
+    currentIndex = 0;
+
     async updateLyrics(song: Song) {
         if (this.currentTrackSongID === song.songID) return;
 
@@ -76,27 +78,69 @@ class LyricsPresenter {
         const BLUETOOTH_DELAY = 0.075;
 
         const progress = spotifyPresenter.currentSong.progressSeconds + BLUETOOTH_DELAY;
-        let currentIndex = -1;
 
-        for (let i = 0; i < parsedLines.length; i++) {
-            if (progress >= parsedLines[i].time) {
-                currentIndex = i;
+        this.currentIndex = this.getActiveLyricIndex(parsedLines, progress);
+
+
+        // Lyrics format
+        // [0:00] Line contents
+        //   [0:10] Next line contents
+
+        if (this.currentIndex == -1) { // checking if lyrics exist, if not return blank line
+            this.currentLine = "";
+            this.nextLine = parsedLines.length > 0 ? // checking if first line exists, if not return blank line
+                `[${formatTime(parsedLines[0].time)}] ${parsedLines[0].text}` : // showing first line of lyrics as next line, if exists
+                "";
+
+        } else {
+            this.currentLine = `[${formatTime(parsedLines[this.currentIndex].time)}] ${parsedLines[this.currentIndex].text}`;
+            this.nextLine = this.currentIndex + 1 < parsedLines.length ? // checking if next line exists, if not return blank line
+                `[${formatTime(parsedLines[this.currentIndex + 1].time)}] ${parsedLines[this.currentIndex + 1].text}` :
+                "";
+        }
+
+        document.getElementById('current-lyric-line')!.textContent = this.currentLine;
+        document.getElementById('next-lyric-line')!.textContent = this.nextLine;
+    }
+
+    getActiveLyricIndex(parsedLines: { time: number; text: string }[], progress: number): number {
+        // Edge case: No lyrics
+        if (!parsedLines || parsedLines.length === 0) return -1;
+
+        // Safety check: If the array changes (e.g., song skipped) and is now 
+        // shorter than our saved index, reset it to prevent out-of-bounds errors.
+        if (this.currentIndex >= parsedLines.length) {
+            this.currentIndex = 0;
+        }
+
+        // 1. THE O(1) FAST PATH (Normal Playback)
+        const isForwardSequential: boolean = progress >= parsedLines[this.currentIndex].time;
+        const isBeforeNext: boolean = (this.currentIndex === parsedLines.length - 1) ||
+            (progress < parsedLines[this.currentIndex + 1].time);
+
+        if (isForwardSequential && isBeforeNext) {
+            return this.currentIndex;
+        }
+
+        // 2. THE O(log n) FALLBACK (User seeked/scrubbed)
+        let low: number = 0;
+        let high: number = parsedLines.length - 1;
+        let bestMatch: number = 0;
+
+        while (low <= high) {
+            const mid: number = Math.floor((low + high) / 2);
+
+            if (parsedLines[mid].time <= progress) {
+                bestMatch = mid; // This is a valid candidate
+                low = mid + 1;   // Check if there's a closer one later
             } else {
-                break;
+                high = mid - 1;  // The time is too far ahead, look earlier
             }
         }
 
-        if (currentIndex === -1) {
-            this.currentLine = "";
-            this.nextLine = parsedLines.length > 0 ? `[${formatTime(parsedLines[0].time)}] ${parsedLines[0].text}` : "";
-            document.getElementById('current-lyric-line')!.textContent = this.currentLine;
-            document.getElementById('next-lyric-line')!.textContent = this.nextLine;
-        } else {
-            this.currentLine = `[${formatTime(parsedLines[currentIndex].time)}] ${parsedLines[currentIndex].text}`;
-            this.nextLine = currentIndex + 1 < parsedLines.length ? `[${formatTime(parsedLines[currentIndex + 1].time)}] ${parsedLines[currentIndex + 1].text}` : "";
-            document.getElementById('current-lyric-line')!.textContent = this.currentLine;
-            document.getElementById('next-lyric-line')!.textContent = this.nextLine;
-        }
+        // Update our state and return
+        this.currentIndex = bestMatch;
+        return this.currentIndex;
     }
 }
 

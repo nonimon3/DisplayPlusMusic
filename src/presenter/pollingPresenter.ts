@@ -30,6 +30,8 @@ class PollingPresenter {
 
         try {
             await spotifyPresenter.pollSingle();
+
+            // Do not try to replace with pollQuick, completely explodes
             if (spotifyPresenter.currentSong) {
                 await lyricsPresenter.updateLyrics(spotifyPresenter.currentSong);
 
@@ -42,6 +44,7 @@ class PollingPresenter {
             console.error("Error polling APIs:", error);
         }
 
+        // recursive call
         if (this.isPolling) {
             this.apiTimeout = window.setTimeout(() => this.pollAPIs(), this.pollingtimeAPIs);
         }
@@ -53,10 +56,6 @@ class PollingPresenter {
         let song = spotifyPresenter.currentSong;
         try {
             if (song) {
-                if (song.isPlaying) {
-                    song.progressSeconds += (this.pollingtimeLyrics / 1000); //progressing song time
-                }
-
                 await lyricsPresenter.updateLyricsLine();
                 createView(song);
             }
@@ -64,6 +63,7 @@ class PollingPresenter {
             console.error("Error polling lyrics:", error);
         }
 
+        // recursive call
         if (this.isPolling) {
             this.lyricsTimeout = window.setTimeout(() => this.pollQuick(), this.pollingtimeLyrics);
         }
