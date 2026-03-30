@@ -15,6 +15,7 @@
 
     <script type="module">
         import viewPresenter from './src/presenter/viewPresenter.ts';
+        import { storage } from './src/utils/storage.ts'
 
         document.getElementById('skip-track').addEventListener('click', () => {
             viewPresenter.forwardTrack();
@@ -63,6 +64,9 @@
                 }
             });
         });
+
+        document.getElementById('client-id').value = await storage.getItem('spotify_client_id');
+        document.getElementById('client-secret').value = await storage.getItem('spotify_client_secret');
     </script>
 
     <!-- Main UI -->
@@ -159,7 +163,7 @@
 
         .popup {
             position: fixed;
-            display: none;
+            display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: flex-start;

@@ -27,83 +27,87 @@ async function initSpotify(): Promise<void> {
         console.error("Error accessing storage:", e);
     }
 
-    if (!clientId || !clientSecret || (!refreshTokenToUse && !codeData)) {
-        console.error("Setup incomplete!");
+    if (!clientId || !clientSecret) {
+        // Logic for when info hasn't been entered yet
+        console.error("User not authenticated yet");
+
+    } else {
+        // Assign dynamically
+        spotifyModel.CLIENT_ID = clientId;
+
+        console.log(clientId + " - " + clientSecret)
         const popup = document.getElementById('spotify-auth-popup');
         if (popup) {
-            popup.style.display = 'flex';
+            popup.style.display = 'none';
         }
-        return;
-    }
 
-    // Assign dynamically
-    spotifyModel.CLIENT_ID = clientId;
+        // AUTHENTICATION FUNCTION
+        const authenticateWithToken = async (token: string) => {
+            console.log("Attempting auth with token ending in...", token.slice(-5));
+            const response = await fetch("https://accounts.spotify.com/api/token", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "Authorization": "Basic " + btoa(clientId + ":" + clientSecret)
+                },
+                body: new URLSearchParams({
+                    grant_type: "refresh_token",
+                    refresh_token: token,
+                }),
+            });
+            const data = await response.json();
+            if (!data.access_token) throw new Error("Auth failed: " + JSON.stringify(data));
+            return data;
+        };
 
-    // AUTHENTICATION FUNCTION
-    const authenticateWithToken = async (token: string) => {
-        console.log("Attempting auth with token ending in...", token.slice(-5));
-        const response = await fetch("https://accounts.spotify.com/api/token", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/x-www-form-urlencoded",
-                "Authorization": "Basic " + btoa(clientId + ":" + clientSecret)
-            },
-            body: new URLSearchParams({
-                grant_type: "refresh_token",
-                refresh_token: token,
-            }),
-        });
-        const data = await response.json();
-        if (!data.access_token) throw new Error("Auth failed: " + JSON.stringify(data));
-        return data;
-    };
+        try {
+            if (codeData) {
+                authData = codeData;
+                if (authData.refresh_token) {
+                    refreshTokenToUse = authData.refresh_token;
+                    try {
+                        await storage.setItem("spotify_refresh_token", authData.refresh_token);
+                        console.log("Initial refresh token saved.");
+                    } catch (e) {
+                        console.error("Failed to persist token:", e);
+                    }
+                }
+            } else if (refreshTokenToUse) {
+                authData = await authenticateWithToken(refreshTokenToUse);
+            }
 
-    try {
-        if (codeData) {
-            authData = codeData;
-            if (authData.refresh_token) {
-                refreshTokenToUse = authData.refresh_token;
+            console.log("Access Token acquired!");
+
+            const newRefreshToken = authData.refresh_token;
+            if (newRefreshToken && newRefreshToken !== refreshTokenToUse) {
+                refreshTokenToUse = newRefreshToken;
                 try {
-                    await storage.setItem("spotify_refresh_token", authData.refresh_token);
-                    console.log("Initial refresh token saved.");
+                    await storage.setItem("spotify_refresh_token", newRefreshToken);
+                    console.log("Refreshed token persisted to storage.");
                 } catch (e) {
                     console.error("Failed to persist token:", e);
                 }
             }
-        } else if (refreshTokenToUse) {
-            authData = await authenticateWithToken(refreshTokenToUse);
-        }
 
-        console.log("Access Token acquired!");
+            // Initialize SDK
+            spotifysdk = SpotifyApi.withAccessToken(
+                clientId,
+                {
+                    access_token: authData.access_token,
+                    token_type: authData.token_type || "Bearer",
+                    expires_in: authData.expires_in,
+                    refresh_token: refreshTokenToUse,
+                    expires: Date.now() + (authData.expires_in * 1000)
+                }
+            );
 
-        const newRefreshToken = authData.refresh_token;
-        if (newRefreshToken && newRefreshToken !== refreshTokenToUse) {
-            refreshTokenToUse = newRefreshToken;
-            try {
-                await storage.setItem("spotify_refresh_token", newRefreshToken);
-                console.log("Refreshed token persisted to storage.");
-            } catch (e) {
-                console.error("Failed to persist token:", e);
+
+        } catch (e: any) {
+            console.error("Critical Auth Error:", e);
+            const popup = document.getElementById('spotify-auth-popup');
+            if (popup) {
+                popup.style.display = 'flex';
             }
-        }
-
-        // Initialize SDK
-        spotifysdk = SpotifyApi.withAccessToken(
-            clientId,
-            {
-                access_token: authData.access_token,
-                token_type: authData.token_type || "Bearer",
-                expires_in: authData.expires_in,
-                refresh_token: refreshTokenToUse,
-                expires: Date.now() + (authData.expires_in * 1000)
-            }
-        );
-
-    } catch (e: any) {
-        console.error("Critical Auth Error:", e);
-        const popup = document.getElementById('spotify-auth-popup');
-        if (popup) {
-            popup.style.display = 'flex';
         }
     }
 }
