@@ -152,8 +152,7 @@ class SpotifyModel {
             }
             return undefined;
         } catch (err: any) {
-            console.error("Failed to fetch next track from queue:", err.message || String(err));
-            return undefined;
+            return song_placeholder;
         }
     }
 
@@ -168,10 +167,6 @@ class SpotifyModel {
                 }
             }
         } catch (err: any) {
-            console.error("Failed to fetch current track:", err.message || String(err));
-            if (err.message && err.message.includes("Premium")) {
-                alert("Spotify Premium is required for this feature.");
-            }
             return song_placeholder;
         }
 

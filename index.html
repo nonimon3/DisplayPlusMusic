@@ -34,6 +34,9 @@
             viewPresenter.clearLocalStorage();
         })
 
+        document.getElementById('client-id').value = await storage.getItem('spotify_client_id');
+        document.getElementById('client-secret').value = await storage.getItem('spotify_client_secret');
+
         // Make popup links copyable
         document.querySelectorAll('.popup-link').forEach(link => {
             link.addEventListener('click', async (e) => {
@@ -64,9 +67,6 @@
                 }
             });
         });
-
-        document.getElementById('client-id').value = await storage.getItem('spotify_client_id');
-        document.getElementById('client-secret').value = await storage.getItem('spotify_client_secret');
     </script>
 
     <!-- Main UI -->

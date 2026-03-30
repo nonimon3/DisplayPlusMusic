@@ -185,7 +185,9 @@ async function createView(songIn: Song) {
                     console.error("Failed to update image data:", e);
                 }
             } else if (songIn.songID !== lastSongID) {
-                console.log(`Skipped image update due to missing or empty raw data for songID ${songIn.songID}`);
+                if (songIn.songID != '0') {
+                    console.log(`Skipped image update due to missing or empty raw data for songID ${songIn.songID}`);
+                }
             }
         }
     } catch (e) {
