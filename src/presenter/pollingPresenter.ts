@@ -4,7 +4,7 @@ import { createView } from "../view/GlassesView";
 
 class PollingPresenter {
     pollingtimeAPIs: number = 500; //ms
-    pollingtimeLyrics: number = 100; //ms
+    pollingtimeLyrics: number = 150; //ms
     private isPolling = false;
     private apiTimeout: number | undefined;
     private lyricsTimeout: number | undefined;
