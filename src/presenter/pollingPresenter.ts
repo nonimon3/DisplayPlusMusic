@@ -1,10 +1,11 @@
 import spotifyPresenter from "./spotifyPresenter";
 import lyricsPresenter from "./lyricsPresenter";
 import { createView } from "../view/GlassesView";
+import viewPresenter from "./viewPresenter";
 
 class PollingPresenter {
     pollingtimeAPIs: number = 300; //ms
-    pollingtimeLyrics: number = 75; //ms
+    pollingtimeLyrics: number = 10; //ms
     private isPolling = false;
     private apiTimeout: number | undefined;
     private lyricsTimeout: number | undefined;
@@ -31,6 +32,8 @@ class PollingPresenter {
             await spotifyPresenter.pollSingle();
             if (spotifyPresenter.currentSong) {
                 await lyricsPresenter.updateLyrics(spotifyPresenter.currentSong);
+
+                viewPresenter.updateHTML(spotifyPresenter.currentSong);
             }
             if (spotifyPresenter.nextSong) {
                 await lyricsPresenter.cacheNextLyrics(spotifyPresenter.nextSong);
@@ -51,7 +54,7 @@ class PollingPresenter {
         try {
             if (song) {
                 if (song.isPlaying) {
-                    song.progressSeconds += (100); //adding buffer to compensate for BLE lag
+                    song.progressSeconds += (this.pollingtimeLyrics / 1000); //progressing song time
                 }
 
                 await lyricsPresenter.updateLyricsLine();

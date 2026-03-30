@@ -18,7 +18,7 @@ class Song {
     albumArtColor: Uint8Array;
 
     isPlaying: Boolean
-    songChanged: Boolean
+    songChanged: Boolean = false;
 
     constructor() {
         this.title = "None";
@@ -34,7 +34,6 @@ class Song {
         this.albumArtColor = new Uint8Array();
 
         this.isPlaying = false;
-        this.songChanged = false;
     }
     addTitle(newTitle: string) {
         this.title = newTitle;
@@ -119,15 +118,15 @@ class Song {
 }
 
 let song_placeholder = new Song();
-song_placeholder.addTitle("Test");
+song_placeholder.addTitle("");
 song_placeholder.addArtist("No Song Found");
 song_placeholder.addFeatures([""]);
-song_placeholder.addAlbum("Test");
+song_placeholder.addAlbum("");
 song_placeholder.addID("0");
 song_placeholder.addProgressSeconds(30);
 song_placeholder.addDurationSeconds(60);
-song_placeholder.addArtRaw(await downloadImageAsGrayscalePng(placeholderArtUrl, 100, 100));
-song_placeholder.addArtColor(await downloadImage(placeholderArtUrl, 144, 144));
+// song_placeholder.addArtRaw(await downloadImageAsGrayscalePng(placeholderArtUrl, 100, 100));
+// song_placeholder.addArtColor(await downloadImage(placeholderArtUrl, 144, 144));
 song_placeholder.addisPlaying(false);
 song_placeholder.addChangedState(false);
 

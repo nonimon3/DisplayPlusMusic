@@ -1,16 +1,10 @@
 import spotifyModel, { initSpotify } from '../model/spotifyModel';
 import Song from '../model/songModel';
-import { formatTime } from '../Scripts/formatTime';
 import { waitForEvenAppBridge } from '@evenrealities/even_hub_sdk';
-import pollingPresenter from './pollingPresenter';
 
 class SpotifyPresenter {
     public currentSong?: Song;
     public nextSong?: Song;
-
-    constructor() {
-        pollingPresenter.startPolling();
-    }
 
     async pollSingle() {
         try {
@@ -23,41 +17,7 @@ class SpotifyPresenter {
 
     async fetchCurrentSong(): Promise<Song> {
         let temp = await spotifyModel.fetchCurrentTrack();
-        this.updateHTML(temp)
         return temp
-    }
-
-    private lastWebSongID: string = "";
-    private lastBlobUrl?: string;
-
-    async updateHTML(song: Song) {
-        document.getElementById('song-name')!.textContent = song.title;
-        document.getElementById('song-artist')!.textContent = song.artist;
-        document.getElementById('song-album')!.textContent = song.album;
-        document.getElementById('song-current-time')!.textContent = formatTime(song.progressSeconds);
-        document.getElementById('song-total-time')!.textContent = formatTime(song.durationSeconds);
-
-        if (song.songID !== this.lastWebSongID) {
-            console.log(`[SpotifyPresenter] updateHTML: songID changed to ${song.songID}, updating album art...`);
-            const imgElement = document.getElementById('album-art') as HTMLImageElement;
-            if (imgElement && song.albumArtRaw.length > 0) {
-                console.log(`[SpotifyPresenter] updateHTML: song.albumArtColor size ${song.albumArtColor.length}`);
-                if (this.lastBlobUrl) {
-                    console.log(`[SpotifyPresenter] updateHTML: revoking last object URL ${this.lastBlobUrl}`);
-                    URL.revokeObjectURL(this.lastBlobUrl);
-                }
-                const blob = new Blob([song.albumArtColor] as BlobPart[], { type: 'image/png' });
-                this.lastBlobUrl = URL.createObjectURL(blob);
-                console.log(`[SpotifyPresenter] updateHTML: created new object URL ${this.lastBlobUrl} of blob size ${blob.size}`);
-                imgElement.src = this.lastBlobUrl;
-
-                imgElement.onload = () => console.log(`[SpotifyPresenter] album-art img loaded successfully`);
-                imgElement.onerror = (e) => console.error(`[SpotifyPresenter] album-art img failed to load error:`, e);
-            } else {
-                console.warn(`[SpotifyPresenter] updateHTML: imgElement missing or albumArtRaw is empty`);
-            }
-            this.lastWebSongID = song.songID;
-        }
     }
 
     async startAuth(tokenIn: string) {

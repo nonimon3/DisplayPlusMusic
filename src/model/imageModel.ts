@@ -2,15 +2,12 @@ import { encodeGrayscalePng } from '../Scripts/pngEncoder';
 
 class ImageModel {
   async _fetchBlob(source: string | Blob): Promise<Blob> {
-    console.log(`[ImageModel] _fetchBlob started for source: ${typeof source === 'string' ? source : 'Blob'}`);
     if (source instanceof Blob) {
-      console.log(`[ImageModel] _fetchBlob received a Blob directly of size ${source.size}`);
       return source;
     }
 
     try {
       const response = await fetch(source);
-      console.log(`[ImageModel] fetch response status: ${response.status} ${response.statusText}`);
 
       if (!response.ok) {
         throw new Error(`Failed to fetch image: ${response.statusText}`);
@@ -61,7 +58,6 @@ class ImageModel {
     ctx.drawImage(bitmap, 0, 0, width, height);
 
     const pngBlob = await new Promise<Blob>((resolve, reject) => {
-      console.log(`[ImageModel] downloadImage generating pngBlob...`);
       if (typeof OffscreenCanvas !== 'undefined' && canvas instanceof OffscreenCanvas) {
         canvas.convertToBlob({ type: 'image/png' })
           .then(resolve)
@@ -83,14 +79,12 @@ class ImageModel {
   }
 
   async downloadImageAsBase64(source: string | Blob): Promise<string> {
-    console.log(`[ImageModel] downloadImageAsBase64 started`);
     const blob = await this._fetchBlob(source);
 
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onloadend = () => {
         const result = reader.result as string;
-        console.log(`[ImageModel] downloadImageAsBase64 finished reading data URL (length: ${result.length})`);
         resolve(result);
       };
       reader.onerror = (e) => {
@@ -113,7 +107,6 @@ class ImageModel {
   }
 
   async downloadImageAsGrayscalePng(source: string | Blob, targetWidth?: number, targetHeight?: number): Promise<Uint8Array> {
-    console.log(`[ImageModel] downloadImageAsGrayscalePng started (target: ${targetWidth}x${targetHeight})`);
     const blob = await this._fetchBlob(source);
     const bitmap = await createImageBitmap(blob);
     let width = bitmap.width;
@@ -196,9 +189,7 @@ class ImageModel {
       }
     }
 
-    console.log(`[ImageModel] downloadImageAsGrayscalePng encoding grayscale png...`);
     const result = encodeGrayscalePng(width, height, grayscaleData);
-    console.log(`[ImageModel] downloadImageAsGrayscalePng completed, returning array of size: ${result.length}`);
     return result;
   }
 }

@@ -145,32 +145,33 @@ class SpotifyModel {
     async fetchCurrentTrack(): Promise<Song> {
         let result;
         try {
-            result = await spotifysdk.player.getPlaybackState();
-            if (result && result.device && result.device.id) {
-                if (this.deviceId !== result.device.id) {
+            result = await spotifysdk.player.getPlaybackState();    //checking playback state to see if media is playing
+
+            if (result && result.device && result.device.id) { // checking if playback state exists
+                if (this.deviceId !== result.device.id) { // checking if device ID changed
                     console.log("Updated device ID from " + this.deviceId + " to " + result.device.id);
                     this.deviceId = result.device.id;
                 }
+            } else { // Nothing is playing, or it's paused and Spotify isn't returning it.
+                if (this.lastSong && this.lastSong.songID !== "0") {
+                    this.lastSong.addisPlaying(false);
+                    return this.lastSong; //return last song as fallback
+                }
+                return song_placeholder; // return placeholder if last song doesn't exist
             }
         } catch (err: any) {
             return song_placeholder;
         }
 
-        // No item means nothing is playing, or it's paused and Spotify isn't returning it.
         if (!result || !result.item) {
-            //console.log("User is not playing anything currently.");
-            if (this.lastSong && this.lastSong.songID !== "0") {
-                this.lastSong.addisPlaying(false);
-                return this.lastSong;
-            }
-            return song_placeholder;
+
         }
 
-        if (result.item.type === 'track') {
+        if (result.item.type === 'track') { // checking if item is song or podcast
             const track = result.item as Track;
 
             if (track.id !== this.lastSong.songID) { // Check if the song has changed
-                console.log("Creating new song, ID changed from " + this.lastSong.songID + " to " + track.id);
+                console.log("[spotifyModel] Creating new song, ID changed from " + this.lastSong.songID + " to " + track.id);
                 const newSong = new Song();
                 newSong.addID(track.id);
                 newSong.addisPlaying(result.is_playing);
@@ -183,7 +184,7 @@ class SpotifyModel {
                 newSong.addAlbum(track.album.name);
                 newSong.addDurationSeconds(track.duration_ms / 1000);
                 newSong.addProgressSeconds(result.progress_ms / 1000);
-                console.log("song time " + track.duration_ms / 1000 + " - " + result.progress_ms / 1000)
+                console.log("[spotifyModel] song time " + track.duration_ms / 1000 + " - " + result.progress_ms / 1000)
                 newSong.addArtRaw(await this.fetchAlbumArtPngGray(track));
                 newSong.addArtColor(await this.fetchAlbumArtPngColor(track));
 
@@ -248,37 +249,16 @@ class SpotifyModel {
 
     async fetchAlbumArtPngGray(track: Track): Promise<Uint8Array> {
         let images = track.album.images;
-        console.log(`[SpotifyModel] fetchAlbumArtPngGray called for track ${track.name}, images available: ${images.length}`);
 
-        if (images.length > 1) {
-            const imageUrl = images[this.imageIndex].url;
-            console.log(`[SpotifyModel] fetchAlbumArtPngGray selected image URL: ${imageUrl}`);
-            let art = await downloadImageAsGrayscalePng(imageUrl, 100, 100);
-            return art;
-        } else if (images.length === 1) {
-            console.log(`[SpotifyModel] fetchAlbumArtPngGray selected image URL (fallback 0): ${images[0].url}`);
-            let art = await downloadImageAsGrayscalePng(images[0].url, 100, 100);
-            return art;
-        }
-        console.warn(`[SpotifyModel] fetchAlbumArtPngGray: no images found for track ${track.name}`);
-        return new Uint8Array();
+        let art = await downloadImageAsGrayscalePng(images[0].url, 100, 100);
+        return art;
     }
+
     async fetchAlbumArtPngColor(track: Track): Promise<Uint8Array> {
         let images = track.album.images;
-        console.log(`[SpotifyModel] fetchAlbumArtPngColor called for track ${track.name}, images available: ${images.length}`);
 
-        if (images.length > 1) {
-            const imageUrl = images[this.imageIndex].url;
-            console.log(`[SpotifyModel] fetchAlbumArtPngColor selected image URL: ${imageUrl}`);
-            let art = await downloadImage(imageUrl, 132, 132);
-            return art;
-        } else if (images.length === 1) {
-            console.log(`[SpotifyModel] fetchAlbumArtPngColor selected image URL (fallback 0): ${images[0].url}`);
-            let art = await downloadImage(images[0].url, 132, 132);
-            return art;
-        }
-        console.warn(`[SpotifyModel] fetchAlbumArtPngColor: no images found for track ${track.name}`);
-        return new Uint8Array();
+        let art = await downloadImage(images[0].url, 132, 132); //fetching first image, resizing down to fit space
+        return art;
     }
 
     async song_Pause() {

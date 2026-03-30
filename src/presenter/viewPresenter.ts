@@ -1,8 +1,13 @@
 import spotifyPresenter from './spotifyPresenter';
 import { storage } from '../utils/storage';
 import spotifyAuthModel from '../model/spotifyAuthModel';
+import Song from '../model/songModel';
+import { formatTime } from '../Scripts/formatTime';
 
 class ViewPresenter {
+    private lastSongID: string = ""
+    private lastBlobUrl?: string;
+
     constructor() { }
 
     initListeners() {
@@ -106,6 +111,32 @@ class ViewPresenter {
         await storage.removeItem('spotify_auth_state');
         console.log("Spotify session cleared!");
         window.location.reload();
+    }
+
+    async updateHTML(song: Song) {
+        document.getElementById('song-name')!.textContent = song.title;
+        document.getElementById('song-artist')!.textContent = song.artist;
+        document.getElementById('song-album')!.textContent = song.album;
+        document.getElementById('song-current-time')!.textContent = formatTime(song.progressSeconds);
+        document.getElementById('song-total-time')!.textContent = formatTime(song.durationSeconds);
+
+        if (song.songID !== this.lastSongID) {
+            const imgElement = document.getElementById('album-art') as HTMLImageElement;
+            if (imgElement) {
+                if (this.lastBlobUrl) {
+                    URL.revokeObjectURL(this.lastBlobUrl);
+                }
+                const blob = new Blob([song.albumArtColor] as BlobPart[], { type: 'image/png' });
+                this.lastBlobUrl = URL.createObjectURL(blob);
+                imgElement.src = this.lastBlobUrl;
+
+                imgElement.onload = () => console.log(`[ViewPresenter] album-art img loaded successfully`);
+                imgElement.onerror = (e) => console.error(`[ViewPresenter] album-art img failed to load error:`, e);
+            } else {
+                console.warn(`[ViewPresenter] updateHTML: imgElement missing or albumArtRaw is empty`);
+            }
+            this.lastSongID = song.songID;
+        }
     }
 }
 
