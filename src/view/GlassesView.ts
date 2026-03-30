@@ -36,8 +36,8 @@ async function createView(songIn: Song) {
         const bridge = await waitForEvenAppBridge();
 
         const albumArtContainer = new ImageContainerProperty({
-            xPosition: 0,
-            yPosition: 0,
+            xPosition: 22,
+            yPosition: 22,
             width: 100,
             height: 100,
             containerID: 0,

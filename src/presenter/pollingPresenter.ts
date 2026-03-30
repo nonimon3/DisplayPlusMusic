@@ -29,12 +29,7 @@ class PollingPresenter {
 
         try {
             await spotifyPresenter.pollSingle();
-            if (spotifyPresenter.currentSong) {
-                await lyricsPresenter.updateLyrics(spotifyPresenter.currentSong);
-            }
-            if (spotifyPresenter.nextSong) {
-                await lyricsPresenter.cacheNextLyrics(spotifyPresenter.nextSong);
-            }
+            await this.pollLyrics();
         } catch (error) {
             console.error("Error polling APIs:", error);
         }
