@@ -23,6 +23,19 @@ let lastConfig: string = "";
 let MAX_HEIGHT = 288;
 let MAX_WIDTH = 576
 
+const withTimeout = <T>(promise: Promise<T>, ms: number, message: string = "Timeout"): Promise<T> => {
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error(message)), ms);
+        promise.then(value => {
+            clearTimeout(timer);
+            resolve(value);
+        }).catch(reason => {
+            clearTimeout(timer);
+            reject(reason);
+        });
+    });
+};
+
 async function createView(songIn: Song) {
     // Basic concurrency guard
     if (isUpdating) {
@@ -178,7 +191,11 @@ async function createView(songIn: Song) {
                         imageData: songIn.albumArtRaw,
                     })
                     console.log(`Image update: size=${songIn.albumArtRaw.length} bytes, type=${songIn.albumArtRaw.constructor.name}, first4=[${songIn.albumArtRaw.slice(0, 4).join(',')}]`);
-                    const result = await bridge.updateImageRawData(imageUpdate);
+                    const result = await withTimeout( // This times out the image update if it takes longer than 5 seconds (in background)
+                        bridge.updateImageRawData(imageUpdate),
+                        5000,
+                        "Image transfer timeout"
+                    );
                     console.log("Image data update result:", result, typeof result);
                     lastSongID = songIn.songID;
                 } catch (e) {

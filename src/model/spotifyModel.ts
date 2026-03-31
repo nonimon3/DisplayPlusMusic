@@ -228,7 +228,7 @@ class SpotifyModel {
                 const localProgress = this.lastSong.progressSeconds;
                 const drift = Math.abs(serverProgress - localProgress);
 
-                if (drift > 1.5) {
+                if (drift > 0.5) {
                     console.log(`[spotifyModel] Sync correcting: drift was ${drift.toFixed(2)}s`);
                     this.lastSong.addProgressSeconds(serverProgress);
                 }
