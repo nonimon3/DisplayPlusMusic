@@ -1,7 +1,7 @@
 import Song from './songModel';
 
 async function fetchLyrics(song: Song) {
-    if (song.title == "No Song Found") {
+    if (song.title == "") {
         console.error("No song found");
         return {
             plainLyrics: null,

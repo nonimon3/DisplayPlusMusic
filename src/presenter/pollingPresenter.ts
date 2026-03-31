@@ -4,7 +4,7 @@ import { createView } from "../view/GlassesView";
 import viewPresenter from "./viewPresenter";
 
 class PollingPresenter {
-    pollingtimeAPIs: number = 1000; // ms
+    pollingtimeAPIs: number = 1500; // ms
     pollingtimeLyrics: number = 10; // ms
 
     private isPolling = false;
@@ -62,7 +62,6 @@ class PollingPresenter {
 
         try {
             if (song) {
-                // 5. If the song is playing, move the progress bar forward locally
                 if (song.isPlaying && song.progressSeconds < song.durationSeconds) {
                     song.progressSeconds += deltaSeconds;
                 }

@@ -15,10 +15,18 @@ class LyricsPresenter {
     currentLine: string = "";
     nextLine: string = "";
 
+    noLyricsDiscoveredTime: number | null = null;
+
     currentIndex = 0;
+
+    // Bluetooth delay in seconds (100ms = 0.1s)
+    BLUETOOTH_DELAY = 0.1;
+
 
     async updateLyrics(song: Song) {
         if (this.currentTrackSongID === song.songID) return;
+
+        this.noLyricsDiscoveredTime = null;
 
         // If the new song is what we cached as the exact next song, swap them in
         if (this.nextTrackSongID === song.songID && this.nextTrackSyncedLyrics) {
@@ -35,6 +43,8 @@ class LyricsPresenter {
 
         this.currentTrackLyrics = lyrics.plainLyrics;
         this.currentTrackSyncedLyrics = lyrics.syncedLyrics;
+
+        this.noLyricsDiscoveredTime = null;
     }
 
     async cacheNextLyrics(nextSong?: Song) {
@@ -49,12 +59,28 @@ class LyricsPresenter {
 
     async updateLyricsLine() {
         if (!spotifyPresenter.currentSong || !this.currentTrackSyncedLyrics) {
-            this.currentLine = "No Lyrics Found";
+
+            // 1. Initialize the timer the very first time we hit this state
+            if (this.noLyricsDiscoveredTime === null) {
+                this.noLyricsDiscoveredTime = Date.now();
+            }
+
+            // 2. Check if 5000 milliseconds (5 seconds) have passed
+            if (Date.now() - this.noLyricsDiscoveredTime < 5000) {
+                this.currentLine = "No Lyrics Found";
+            } else {
+                this.currentLine = ""; // Clear the line after 5 seconds
+            }
+
             this.nextLine = "";
             document.getElementById('current-lyric-line')!.textContent = this.currentLine;
             document.getElementById('next-lyric-line')!.textContent = this.nextLine;
             return;
         }
+
+        // ADD THIS: If we successfully have lyrics, ensure the timer is reset 
+        // so it's ready for the next time lyrics go missing
+        this.noLyricsDiscoveredTime = null;
 
         const lines = this.currentTrackSyncedLyrics.split('\n');
         const parsedLines: { time: number; text: string }[] = [];
@@ -74,10 +100,7 @@ class LyricsPresenter {
             }
         }
 
-        // Bluetooth delay in seconds (100ms = 0.1s)
-        const BLUETOOTH_DELAY = 0.075;
-
-        const progress = spotifyPresenter.currentSong.progressSeconds + BLUETOOTH_DELAY;
+        const progress = spotifyPresenter.currentSong.progressSeconds + this.BLUETOOTH_DELAY;
 
         this.currentIndex = this.getActiveLyricIndex(parsedLines, progress);
 

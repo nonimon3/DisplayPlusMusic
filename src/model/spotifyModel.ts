@@ -222,7 +222,17 @@ class SpotifyModel {
                 }
 
                 this.lastSong.addisPlaying(result.is_playing);
-                this.lastSong.addProgressSeconds(result.progress_ms / 1000);
+
+                // Logic to prevent stutter in updates from Spotify when comparing to local computed progress
+                const serverProgress = result.progress_ms / 1000;
+                const localProgress = this.lastSong.progressSeconds;
+                const drift = Math.abs(serverProgress - localProgress);
+
+                if (drift > 1.5) {
+                    console.log(`[spotifyModel] Sync correcting: drift was ${drift.toFixed(2)}s`);
+                    this.lastSong.addProgressSeconds(serverProgress);
+                }
+
                 this.lastSong.addChangedState(false);
 
                 this.currentSong = this.lastSong;
