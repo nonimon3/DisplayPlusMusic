@@ -4,15 +4,19 @@ import { createView } from "../view/GlassesView";
 import viewPresenter from "./viewPresenter";
 
 class PollingPresenter {
-    pollingtimeAPIs: number = 300; //ms
-    pollingtimeLyrics: number = 10; //ms
+    pollingtimeAPIs: number = 1000; // ms
+    pollingtimeLyrics: number = 10; // ms
+
     private isPolling = false;
     private apiTimeout: number | undefined;
     private lyricsTimeout: number | undefined;
 
+    private lastFrameTime: number = performance.now();
+
     async startPolling() {
         if (this.isPolling) return;
         this.isPolling = true;
+        this.lastFrameTime = performance.now(); // Initialize the clock
         this.pollAPIs();
         this.pollQuick();
     }
@@ -31,10 +35,8 @@ class PollingPresenter {
         try {
             await spotifyPresenter.pollSingle();
 
-            // Do not try to replace with pollQuick, completely explodes
             if (spotifyPresenter.currentSong) {
                 await lyricsPresenter.updateLyrics(spotifyPresenter.currentSong);
-
                 viewPresenter.updateHTML(spotifyPresenter.currentSong);
             }
             if (spotifyPresenter.nextSong) {
@@ -44,7 +46,6 @@ class PollingPresenter {
             console.error("Error polling APIs:", error);
         }
 
-        // recursive call
         if (this.isPolling) {
             this.apiTimeout = window.setTimeout(() => this.pollAPIs(), this.pollingtimeAPIs);
         }
@@ -54,8 +55,18 @@ class PollingPresenter {
         if (!this.isPolling) return;
 
         let song = spotifyPresenter.currentSong;
+
+        let now = performance.now();
+        let deltaSeconds = (now - this.lastFrameTime) / 1000;
+        this.lastFrameTime = now;
+
         try {
             if (song) {
+                // 5. If the song is playing, move the progress bar forward locally
+                if (song.isPlaying && song.progressSeconds < song.durationSeconds) {
+                    song.progressSeconds += deltaSeconds;
+                }
+
                 await lyricsPresenter.updateLyricsLine();
                 createView(song);
             }
@@ -63,7 +74,6 @@ class PollingPresenter {
             console.error("Error polling lyrics:", error);
         }
 
-        // recursive call
         if (this.isPolling) {
             this.lyricsTimeout = window.setTimeout(() => this.pollQuick(), this.pollingtimeLyrics);
         }
