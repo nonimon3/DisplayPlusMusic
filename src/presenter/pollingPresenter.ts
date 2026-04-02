@@ -1,80 +1,72 @@
-import spotifyPresenter from "./spotifyPresenter";
-import lyricsPresenter from "./lyricsPresenter";
-import { createView } from "../view/GlassesView";
-import viewPresenter from "./viewPresenter";
+import spotifyPresenter from './spotifyPresenter';
+import lyricsPresenter from './lyricsPresenter';
+import { createView } from '../view/GlassesView';
+import viewPresenter from './viewPresenter';
 
 class PollingPresenter {
-    pollingtimeAPIs: number = 1500; // ms
-    pollingtimeLyrics: number = 10; // ms
+    private readonly API_INTERVAL_MS = 1000; // 1000ms = 1 sec
+    private readonly QUICK_INTERVAL_MS = 10;
 
     private isPolling = false;
     private apiTimeout: number | undefined;
-    private lyricsTimeout: number | undefined;
+    private quickTimeout: number | undefined;
+    private lastFrameTime = performance.now();
 
-    private lastFrameTime: number = performance.now();
-
-    async startPolling() {
+    startPolling() {
         if (this.isPolling) return;
         this.isPolling = true;
-        this.lastFrameTime = performance.now(); // Initialize the clock
+        this.lastFrameTime = performance.now();
         this.pollAPIs();
         this.pollQuick();
     }
 
     stopPolling() {
         this.isPolling = false;
-        if (this.apiTimeout) clearTimeout(this.apiTimeout);
-        if (this.lyricsTimeout) clearTimeout(this.lyricsTimeout);
+        clearTimeout(this.apiTimeout);
+        clearTimeout(this.quickTimeout);
         this.apiTimeout = undefined;
-        this.lyricsTimeout = undefined;
+        this.quickTimeout = undefined;
     }
 
     private async pollAPIs() {
         if (!this.isPolling) return;
-
         try {
             await spotifyPresenter.pollSingle();
-
-            if (spotifyPresenter.currentSong) {
-                await lyricsPresenter.updateLyrics(spotifyPresenter.currentSong);
-                viewPresenter.updateHTML(spotifyPresenter.currentSong);
+            const song = spotifyPresenter.currentSong;
+            if (song) {
+                await lyricsPresenter.updateLyrics(song);
+                viewPresenter.updateHTML(song);
             }
             if (spotifyPresenter.nextSong) {
-                await lyricsPresenter.cacheNextLyrics(spotifyPresenter.nextSong);
+                lyricsPresenter.cacheNextLyrics(spotifyPresenter.nextSong);
             }
-        } catch (error) {
-            console.error("Error polling APIs:", error);
+        } catch (e) {
+            console.error('[pollAPIs] Error:', e);
         }
-
         if (this.isPolling) {
-            this.apiTimeout = window.setTimeout(() => this.pollAPIs(), this.pollingtimeAPIs);
+            this.apiTimeout = window.setTimeout(() => this.pollAPIs(), this.API_INTERVAL_MS);
         }
     }
 
-    private async pollQuick() {
+    private pollQuick() {
         if (!this.isPolling) return;
 
-        let song = spotifyPresenter.currentSong;
-
-        let now = performance.now();
-        let deltaSeconds = (now - this.lastFrameTime) / 1000;
+        const now = performance.now();
+        const delta = (now - this.lastFrameTime) / 1000;
         this.lastFrameTime = now;
 
-        try {
-            if (song) {
-                if (song.isPlaying && song.progressSeconds < song.durationSeconds) {
-                    song.progressSeconds += deltaSeconds;
-                }
-
-                await lyricsPresenter.updateLyricsLine();
-                createView(song);
+        const song = spotifyPresenter.currentSong;
+        if (song) {
+            if (song.isPlaying && song.progressSeconds < song.durationSeconds) {
+                song.progressSeconds += delta;
             }
-        } catch (error) {
-            console.error("Error polling lyrics:", error);
+            // Both fire-and-forget — neither should block the clock
+            lyricsPresenter.updateLyricsLine().catch(e => console.error('[pollQuick] Lyrics error:', e));
+            createView(song);
         }
 
         if (this.isPolling) {
-            this.lyricsTimeout = window.setTimeout(() => this.pollQuick(), this.pollingtimeLyrics);
+            this.quickTimeout = window.setTimeout(() => this.pollQuick(), this.QUICK_INTERVAL_MS);
         }
     }
 }

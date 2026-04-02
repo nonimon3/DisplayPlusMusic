@@ -3,46 +3,34 @@ import Song from '../model/songModel';
 import { waitForEvenAppBridge } from '@evenrealities/even_hub_sdk';
 
 class SpotifyPresenter {
-    public currentSong?: Song;
-    public nextSong?: Song;
+    currentSong?: Song;
+    nextSong?: Song;
 
     async pollSingle() {
         try {
-            this.currentSong = await this.fetchCurrentSong();
+            this.currentSong = await spotifyModel.fetchCurrentTrack();
             this.nextSong = await spotifyModel.fetchNextTrack();
-        } catch (error) {
-            console.error("Error fetching song:", error);
+        } catch (e) {
+            console.error('[SpotifyPresenter] pollSingle error:', e);
         }
     }
 
     async fetchCurrentSong(): Promise<Song> {
-        let temp = await spotifyModel.fetchCurrentTrack();
-        return temp
+        return spotifyModel.fetchCurrentTrack();
     }
 
-    async startAuth(tokenIn: string) {
+    async startAuth(token: string) {
         const bridge = await waitForEvenAppBridge();
-
-        bridge.setLocalStorage('spotify_refresh_token', tokenIn);
-
+        bridge.setLocalStorage('spotify_refresh_token', token);
         initSpotify();
     }
 
     song_pauseplay() {
-        if (this.currentSong!.isPlaying) {
-            spotifyModel.song_Pause();
-        } else {
-            spotifyModel.song_Play();
-        }
+        this.currentSong?.isPlaying ? spotifyModel.song_Pause() : spotifyModel.song_Play();
     }
-    song_back() {
-        spotifyModel.song_Back();
-    }
-    song_forward() {
-        spotifyModel.song_Forward();
-    }
+    song_back() { spotifyModel.song_Back(); }
+    song_forward() { spotifyModel.song_Forward(); }
 }
 
 const spotifyPresenter = new SpotifyPresenter();
-
 export default spotifyPresenter;

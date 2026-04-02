@@ -1,200 +1,224 @@
 import {
     waitForEvenAppBridge,
+    EvenAppBridge,
     CreateStartUpPageContainer,
     TextContainerProperty,
     ImageContainerProperty,
     ImageRawDataUpdate,
+    ImageRawDataUpdateResult,
+    StartUpPageCreateResult,
     RebuildPageContainer,
     TextContainerUpgrade,
     ListContainerProperty,
     ListItemContainerProperty,
-
 } from '@evenrealities/even_hub_sdk';
 
 import { formatTime } from '../Scripts/formatTime';
 import Song from '../model/songModel';
 import lyricsPresenter from '../presenter/lyricsPresenter';
 
-// State management variables
+const MAX_HEIGHT = 288;
+const MAX_WIDTH = 576;
+const IMAGE_RETRY_DELAY_MS = 3000;
+
+let bridge: EvenAppBridge | null = null;
 let isPageCreated = false;
 let isUpdating = false;
-let lastSongID: string = "";
-let lastConfig: string = "";
-let MAX_HEIGHT = 288;
-let MAX_WIDTH = 576
+let isSendingImage = false;
+let lastSongID = "";
+let imageRetryAt = 0;
 
-async function createView(songIn: Song) {
-    // Basic concurrency guard
-    if (isUpdating) {
-        // console.log("Skipping update - previous update still in progress");
-        return;
+/** Resolves with fallback value if the promise times out or throws. */
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+    return Promise.race([
+        promise.catch(() => fallback),
+        new Promise<T>(resolve => setTimeout(() => resolve(fallback), ms)),
+    ]);
+}
+
+/** Builds the static container layout. Content fields are irrelevant for layout comparison. */
+function buildContainerConfig(songInfoText: string, playbackBarText: string) {
+    return {
+        containerTotalNum: 4,
+        imageObject: [
+            new ImageContainerProperty({
+                xPosition: 22,
+                yPosition: 22,
+                width: 100,
+                height: 100,
+                containerID: 0,
+                containerName: 'album-art',
+            }),
+        ],
+        listObject: [
+            new ListContainerProperty({
+                xPosition: 154,
+                yPosition: 0,
+                width: 80,
+                height: 132,
+                borderWidth: 0,
+                borderRadius: 0,
+                containerID: 2,
+                containerName: 'buttons',
+                isEventCapture: 1,
+                itemContainer: new ListItemContainerProperty({
+                    itemCount: 3,
+                    itemName: ['◁◁', ' ▷ll', '▷▷'],
+                    isItemSelectBorderEn: 1,
+                }),
+            }),
+        ],
+        textObject: [
+            new TextContainerProperty({
+                xPosition: 234,
+                yPosition: 8,
+                width: MAX_WIDTH - 242,
+                height: 132,
+                borderRadius: 12,
+                borderWidth: 1,
+                paddingLength: 16,
+                containerID: 3,
+                containerName: 'songInfo',
+                content: songInfoText,
+                isEventCapture: 0,
+            }),
+            new TextContainerProperty({
+                xPosition: 0,
+                yPosition: 150,
+                width: MAX_WIDTH,
+                height: MAX_HEIGHT - 150,
+                borderRadius: 6,
+                borderWidth: 0,
+                containerID: 4,
+                containerName: 'playbackBar',
+                content: playbackBarText,
+                isEventCapture: 0,
+            }),
+        ],
+    };
+}
+
+/** Sends album art in the background — never blocks the text update path. */
+async function sendImageAsync(song: Song): Promise<void> {
+    if (isSendingImage || Date.now() < imageRetryAt) return;
+    if (!song.albumArtRaw || song.albumArtRaw.length === 0 || song.songID === lastSongID) return;
+
+    isSendingImage = true;
+    try {
+        const result = await withTimeout(
+            bridge!.updateImageRawData(new ImageRawDataUpdate({
+                containerID: 0,
+                containerName: 'album-art',
+                imageData: song.albumArtRaw,
+            })),
+            8000,
+            ImageRawDataUpdateResult.sendFailed,
+        );
+
+        if (result === ImageRawDataUpdateResult.success) {
+            lastSongID = song.songID;
+            imageRetryAt = 0;
+            console.log(`[GlassesView] Image sent for: ${song.title}`);
+        } else {
+            console.warn(`[GlassesView] Image sendFailed (${result}), retrying in ${IMAGE_RETRY_DELAY_MS}ms`);
+            imageRetryAt = Date.now() + IMAGE_RETRY_DELAY_MS;
+        }
+    } catch (e) {
+        console.error('[GlassesView] sendImageAsync error:', e);
+        imageRetryAt = Date.now() + IMAGE_RETRY_DELAY_MS;
+    } finally {
+        isSendingImage = false;
     }
+}
 
+export async function createView(song: Song): Promise<void> {
+    if (isUpdating) return;
     isUpdating = true;
 
     try {
-        const bridge = await waitForEvenAppBridge();
+        // Cache the bridge — waitForEvenAppBridge resolves instantly after first call
+        if (!bridge) {
+            bridge = await withTimeout(waitForEvenAppBridge(), 3000, null);
+            if (!bridge) {
+                console.warn('[GlassesView] Bridge unavailable, skipping frame');
+                return;
+            }
+        }
 
-        const albumArtContainer = new ImageContainerProperty({
-            xPosition: 22,
-            yPosition: 22,
-            width: 100,
-            height: 100,
-            containerID: 0,
-            containerName: 'album-art',
-        });
+        const songInfoText = `${song.title}\n${song.artist}\n${song.album}`;
+        const playbackBarText =
+            `    ${formatTime(song.progressSeconds)} / ${formatTime(song.durationSeconds)}\n` +
+            `${song.createPlaybackBar(MAX_WIDTH)}\n` +
+            `  ${lyricsPresenter.currentLine}\n` +
+            `    ${lyricsPresenter.nextLine}`;
 
-        const buttons = new ListContainerProperty({
-            xPosition: 154,
-            yPosition: 0,
-            width: 80,
-            height: 132,
-            borderWidth: 0,
-            borderRadius: 0,
-            containerID: 2,
-            containerName: 'buttons',
-            isEventCapture: 1,
-            itemContainer: new ListItemContainerProperty({
-                itemCount: 3,
-                itemName: ["◁◁", " ▷ll", "▷▷"],
-                isItemSelectBorderEn: 1
-            })
-        })
+        const config = buildContainerConfig(songInfoText, playbackBarText);
 
-
-        const songInfoText = songIn.title + "\n" + songIn.artist + "\n" + songIn.album;
-        const songInfo = new TextContainerProperty({
-            xPosition: 234,
-            yPosition: 8,
-            width: MAX_WIDTH - (242),
-            height: 132,
-            borderRadius: 12,
-            borderWidth: 1,
-            paddingLength: 16,
-            containerID: 3,
-            containerName: 'songInfo',
-            content: songInfoText,
-            isEventCapture: 0,
-        });
-
-
-        const playbackBarText = "    " + formatTime(songIn.progressSeconds) + " / " + formatTime(songIn.durationSeconds) + "\n" + songIn.createPlaybackBar(MAX_WIDTH) + "\n  " + lyricsPresenter.currentLine + "\n    " + lyricsPresenter.nextLine;
-        // const playbackBarText = "[".repeat(82);
-        const playbackBar = new TextContainerProperty({
-            xPosition: 0,
-            yPosition: 150,
-            width: MAX_WIDTH,
-            height: MAX_HEIGHT - 150,
-            borderRadius: 6,
-            borderWidth: 0,
-            containerID: 4,
-            containerName: 'playbackBar',
-            content: playbackBarText,
-            isEventCapture: 0,
-        })
-
-        const containerConfig = {
-            containerTotalNum: 4,
-            textObject: [songInfo, playbackBar],
-            listObject: [buttons],
-            imageObject: [albumArtContainer],
-        };
-
-        // If page is not created, try to create it.
+        // First-time setup: create the page container
         if (!isPageCreated) {
-            const container = new CreateStartUpPageContainer(containerConfig);
-            const result = await bridge.createStartUpPageContainer(container);
-            console.log('createStartUpPageContainer result:', result);
+            const result = await withTimeout(
+                bridge.createStartUpPageContainer(new CreateStartUpPageContainer(config)),
+                5000,
+                StartUpPageCreateResult.invalid,
+            );
+            console.log('[GlassesView] createStartUpPageContainer:', result);
 
-            if (result === 0) {
-                console.log('Container created successfully');
-                isPageCreated = true;
-                const layoutConfig = {
-                    ...containerConfig,
-                    textObject: containerConfig.textObject?.map((t: any) => ({ ...t, content: '' }))
-                };
-                lastConfig = JSON.stringify(layoutConfig);
-            } else if (result === 1) {
-                // Result 1 (invalid) likely means container already exists.
-                // Mark as created so we proceed to rebuild next.
-                console.log('Container creation returned invalid (1), assuming already exists. Switching to rebuild mode.');
+            if (result === StartUpPageCreateResult.success || result === StartUpPageCreateResult.invalid) {
+                // success = created fresh; invalid = already exists — either way we're ready
                 isPageCreated = true;
             } else {
-                console.error('Failed to create container:', result);
-                return; // Exit if a critical error occurred (oversize, out of memory, etc.)
+                // oversize or outOfMemory — can't recover, don't mark as created
+                console.error('[GlassesView] Fatal container error:', result);
+                return;
             }
         }
 
-        // If page is created (or existed), rebuild/update it.
-        if (isPageCreated) {
-            // Create a layout-only config for comparison (exclude dynamic content)
-            const layoutConfig = {
-                ...containerConfig,
-                textObject: containerConfig.textObject?.map((t: any) => ({ ...t, content: '' }))
-            };
-            const currentLayoutStr = JSON.stringify(layoutConfig);
+        // Normal update: upgrade text content in-place (no screen clear)
+        const ok1 = await withTimeout(
+            bridge.textContainerUpgrade(new TextContainerUpgrade({
+                containerID: 3,
+                containerName: 'songInfo',
+                content: songInfoText,
+            })),
+            2000,
+            false,
+        );
 
-            if (currentLayoutStr !== lastConfig) {
-                // Config changed, rebuild
-                console.log("Layout config changed, rebuilding page container...");
-                const rebuildContainer = new RebuildPageContainer(containerConfig);
-                const rebuildResult = await bridge.rebuildPageContainer(rebuildContainer);
-                console.log('rebuildPageContainer result:', rebuildResult);
-
-                // Add a small delay so the glasses have time to clear the screen 
-                // and parse the new container before we bombard them with the image
+        if (!ok1) {
+            // Text upgrade failed — fall back to a full rebuild so the container
+            // is definitely in a known state before next frame
+            console.warn('[GlassesView] textContainerUpgrade failed, rebuilding...');
+            const rebuilt = await withTimeout(
+                bridge.rebuildPageContainer(new RebuildPageContainer(config)),
+                5000,
+                false,
+            );
+            if (rebuilt) {
                 await new Promise(r => setTimeout(r, 300));
-
-                lastConfig = currentLayoutStr;
-                lastSongID = ""; // Force image resend after rebuild
-            } else {
-                // If config hasn't changed, try to just upgrade the text content
-                // This avoids clearing the screen/image
-                try {
-                    const upgrade = new TextContainerUpgrade({
-                        containerID: 3,
-                        containerName: 'songInfo',
-                        content: songInfoText,
-                    });
-                    await bridge.textContainerUpgrade(upgrade);
-
-                    const upgrade2 = new TextContainerUpgrade({
-                        containerID: 4,
-                        containerName: 'playbackBar',
-                        content: playbackBarText,
-                    })
-                    await bridge.textContainerUpgrade(upgrade2);
-                } catch (e) {
-                    console.error("Failed to upgrade text container:", e);
-                }
+                lastSongID = ''; // force image resend after rebuild
+                imageRetryAt = 0;
             }
-
-            //console.log(`Album art check - current length: ${songIn.albumArtRaw?.length}, songID: ${songIn.songID}, lastSongID: ${lastSongID}`);
-            if (songIn.albumArtRaw && songIn.albumArtRaw.length > 0 && songIn.songID !== lastSongID) {
-                try {
-                    const imageUpdate = new ImageRawDataUpdate({
-                        containerID: 0,
-                        containerName: 'album-art',
-                        imageData: songIn.albumArtRaw,
-                    })
-                    console.log(`Image update: size=${songIn.albumArtRaw.length} bytes, type=${songIn.albumArtRaw.constructor.name}, first4=[${songIn.albumArtRaw.slice(0, 4).join(',')}]`);
-                    const result = await bridge.updateImageRawData(imageUpdate);
-                    console.log("Image data update result:", result, typeof result);
-                    lastSongID = songIn.songID;
-                } catch (e) {
-                    console.error("Failed to update image data:", e);
-                }
-            } else if (songIn.songID !== lastSongID) {
-                if (songIn.songID != '0') {
-                    console.log(`Skipped image update due to missing or empty raw data for songID ${songIn.songID}`);
-                }
-            }
+            return; // Either way, skip this frame and retry next tick
         }
+
+        await withTimeout(
+            bridge.textContainerUpgrade(new TextContainerUpgrade({
+                containerID: 4,
+                containerName: 'playbackBar',
+                content: playbackBarText,
+            })),
+            2000,
+            false,
+        );
+
+        // Kick off image send in background if needed
+        if (song.albumArtRaw?.length > 0 && song.songID !== lastSongID) {
+            sendImageAsync(song);
+        }
+
     } catch (e) {
-        console.error("Error in createView:", e);
+        console.error('[GlassesView] createView error:', e);
     } finally {
         isUpdating = false;
     }
 }
-
-export { createView };

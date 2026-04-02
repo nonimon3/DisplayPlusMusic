@@ -114,28 +114,29 @@ class ViewPresenter {
     }
 
     async updateHTML(song: Song) {
-        document.getElementById('song-name')!.textContent = song.title;
-        document.getElementById('song-artist')!.textContent = song.artist;
-        document.getElementById('song-album')!.textContent = song.album;
-        document.getElementById('song-current-time')!.textContent = formatTime(song.progressSeconds);
-        document.getElementById('song-total-time')!.textContent = formatTime(song.durationSeconds);
+        try {
+            const setText = (id: string, val: string) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = val;
+            };
+            setText('song-name', song.title);
+            setText('song-artist', song.artist);
+            setText('song-album', song.album);
+            setText('song-current-time', formatTime(song.progressSeconds));
+            setText('song-total-time', formatTime(song.durationSeconds));
 
-        if (song.songID !== this.lastSongID) {
-            const imgElement = document.getElementById('album-art') as HTMLImageElement;
-            if (imgElement) {
-                if (this.lastBlobUrl) {
-                    URL.revokeObjectURL(this.lastBlobUrl);
+            if (song.songID !== this.lastSongID) {
+                const imgElement = document.getElementById('album-art') as HTMLImageElement;
+                if (imgElement && song.albumArtColor?.length > 0) {
+                    if (this.lastBlobUrl) URL.revokeObjectURL(this.lastBlobUrl);
+                    const blob = new Blob([song.albumArtColor] as BlobPart[], { type: 'image/png' });
+                    this.lastBlobUrl = URL.createObjectURL(blob);
+                    imgElement.src = this.lastBlobUrl;
                 }
-                const blob = new Blob([song.albumArtColor] as BlobPart[], { type: 'image/png' });
-                this.lastBlobUrl = URL.createObjectURL(blob);
-                imgElement.src = this.lastBlobUrl;
-
-                imgElement.onload = () => console.log(`[ViewPresenter] album-art img loaded successfully`);
-                imgElement.onerror = (e) => console.error(`[ViewPresenter] album-art img failed to load error:`, e);
-            } else {
-                console.warn(`[ViewPresenter] updateHTML: imgElement missing or albumArtRaw is empty`);
+                this.lastSongID = song.songID;
             }
-            this.lastSongID = song.songID;
+        } catch (e) {
+            console.error("[viewPresenter] updateHTML threw:", e);
         }
     }
 }

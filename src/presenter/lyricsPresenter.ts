@@ -1,169 +1,168 @@
-import { fetchLyrics } from "../model/lyricsModel";
-import { formatTime } from "../Scripts/formatTime";
-import Song from "../model/songModel";
-import spotifyPresenter from "./spotifyPresenter";
+import { fetchLyrics } from '../model/lyricsModel';
+import { formatTime } from '../Scripts/formatTime';
+import Song from '../model/songModel';
+import spotifyPresenter from './spotifyPresenter';
+
+interface LyricLine {
+    time: number;
+    text: string;
+}
 
 class LyricsPresenter {
-    currentTrackSongID: string = "";
-    currentTrackLyrics: string = "";
-    currentTrackSyncedLyrics: string = "";
+    currentLine = '';
+    nextLine = '';
 
-    nextTrackSongID: string = "";
-    nextTrackLyrics: string = "";
-    nextTrackSyncedLyrics: string = "";
+    private currentSongID = '';
+    private syncedLyrics = '';
 
-    currentLine: string = "";
-    nextLine: string = "";
+    private nextSongID = '';
+    private nextSyncedLyrics = '';
+    private nextPlainLyrics = '';
 
-    noLyricsDiscoveredTime: number | null = null;
+    private isFetching = false;
+    private currentIndex = 0;
+    private noLyricsShownUntil: number | null = null;
 
-    currentIndex = 0;
-
-    // Bluetooth delay in seconds (100ms = 0.1s)
-    BLUETOOTH_DELAY = 0.1;
-
+    // Compensate for Bluetooth display latency
+    private readonly BLUETOOTH_DELAY = 0.1;
+    // Show "No Lyrics Found" for this long before clearing it
+    private readonly NO_LYRICS_DISPLAY_MS = 5000;
 
     async updateLyrics(song: Song) {
-        if (this.currentTrackSongID === song.songID) return;
+        if (this.currentSongID === song.songID || this.isFetching) return;
 
-        this.noLyricsDiscoveredTime = null;
-
-        // If the new song is what we cached as the exact next song, swap them in
-        if (this.nextTrackSongID === song.songID && this.nextTrackSyncedLyrics) {
-            this.currentTrackSongID = this.nextTrackSongID;
-            this.currentTrackLyrics = this.nextTrackLyrics;
-            this.currentTrackSyncedLyrics = this.nextTrackSyncedLyrics;
+        // Fast path: next song was pre-cached
+        if (this.nextSongID === song.songID && this.nextSyncedLyrics) {
+            this.currentSongID = this.nextSongID;
+            this.syncedLyrics = this.nextSyncedLyrics;
+            this.currentIndex = 0;
+            this.noLyricsShownUntil = null;
             return;
         }
 
-        // Otherwise fetch fresh
-        this.currentTrackSongID = song.songID;
+        // Clear stale lyrics immediately so the display doesn't show wrong song's lines
+        this.currentSongID = song.songID;
+        this.syncedLyrics = '';
+        this.currentIndex = 0;
+        this.currentLine = '';
+        this.nextLine = '';
+        this.noLyricsShownUntil = null;
 
-        let lyrics = await fetchLyrics(song);
-
-        this.currentTrackLyrics = lyrics.plainLyrics;
-        this.currentTrackSyncedLyrics = lyrics.syncedLyrics;
-
-        this.noLyricsDiscoveredTime = null;
+        this.isFetching = true;
+        try {
+            const lyrics = await fetchLyrics(song);
+            // Only apply if the song hasn't changed again while fetching
+            if (this.currentSongID === song.songID) {
+                this.syncedLyrics = lyrics.syncedLyrics ?? '';
+            }
+        } catch (e) {
+            console.error('[LyricsPresenter] fetchLyrics error:', e);
+        } finally {
+            this.isFetching = false;
+        }
     }
 
-    async cacheNextLyrics(nextSong?: Song) {
-        if (!nextSong || this.nextTrackSongID === nextSong.songID || this.currentTrackSongID === nextSong.songID) return;
+    async cacheNextLyrics(nextSong: Song) {
+        if (
+            this.nextSongID === nextSong.songID ||
+            this.currentSongID === nextSong.songID
+        ) return;
 
-        this.nextTrackSongID = nextSong.songID;
-        let lyrics = await fetchLyrics(nextSong);
-
-        this.nextTrackLyrics = lyrics.plainLyrics;
-        this.nextTrackSyncedLyrics = lyrics.syncedLyrics;
+        this.nextSongID = nextSong.songID;
+        try {
+            const lyrics = await fetchLyrics(nextSong);
+            this.nextSyncedLyrics = lyrics.syncedLyrics ?? '';
+            this.nextPlainLyrics = lyrics.plainLyrics ?? '';
+        } catch (e) {
+            console.error('[LyricsPresenter] cacheNextLyrics error:', e);
+        }
     }
 
     async updateLyricsLine() {
-        if (!spotifyPresenter.currentSong || !this.currentTrackSyncedLyrics) {
-
-            // 1. Initialize the timer the very first time we hit this state
-            if (this.noLyricsDiscoveredTime === null) {
-                this.noLyricsDiscoveredTime = Date.now();
+        try {
+            if (!spotifyPresenter.currentSong || !this.syncedLyrics) {
+                // Show "No Lyrics Found" briefly, then clear
+                if (this.noLyricsShownUntil === null) {
+                    this.noLyricsShownUntil = Date.now() + this.NO_LYRICS_DISPLAY_MS;
+                }
+                this.currentLine = Date.now() < this.noLyricsShownUntil ? 'No Lyrics Found' : '';
+                this.nextLine = '';
+                this.setHTML(this.currentLine, '');
+                return;
             }
 
-            // 2. Check if 5000 milliseconds (5 seconds) have passed
-            if (Date.now() - this.noLyricsDiscoveredTime < 5000) {
-                this.currentLine = "No Lyrics Found";
+            this.noLyricsShownUntil = null;
+
+            const parsedLines = this.parseLines(this.syncedLyrics);
+            const progress = spotifyPresenter.currentSong.progressSeconds + this.BLUETOOTH_DELAY;
+            this.currentIndex = this.getActiveIndex(parsedLines, progress);
+
+            if (this.currentIndex === -1) {
+                this.currentLine = '';
+                this.nextLine = parsedLines.length > 0
+                    ? `[${formatTime(parsedLines[0].time)}] ${parsedLines[0].text}`
+                    : '';
             } else {
-                this.currentLine = ""; // Clear the line after 5 seconds
+                this.currentLine = `[${formatTime(parsedLines[this.currentIndex].time)}] ${parsedLines[this.currentIndex].text}`;
+                this.nextLine = this.currentIndex + 1 < parsedLines.length
+                    ? `[${formatTime(parsedLines[this.currentIndex + 1].time)}] ${parsedLines[this.currentIndex + 1].text}`
+                    : '';
             }
 
-            this.nextLine = "";
-            document.getElementById('current-lyric-line')!.textContent = this.currentLine;
-            document.getElementById('next-lyric-line')!.textContent = this.nextLine;
-            return;
+            this.setHTML(this.currentLine, this.nextLine);
+        } catch (e) {
+            console.error('[LyricsPresenter] updateLyricsLine error:', e);
         }
+    }
 
-        // ADD THIS: If we successfully have lyrics, ensure the timer is reset 
-        // so it's ready for the next time lyrics go missing
-        this.noLyricsDiscoveredTime = null;
-
-        const lines = this.currentTrackSyncedLyrics.split('\n');
-        const parsedLines: { time: number; text: string }[] = [];
-
-        for (const line of lines) {
+    private parseLines(raw: string): LyricLine[] {
+        const result: LyricLine[] = [];
+        for (const line of raw.split('\n')) {
             const match = line.match(/^\s*\[(\d+):(\d+(?:\.\d+)?)\](.*)/);
             if (match) {
                 const text = match[3].trim();
                 if (text) {
-                    const minutes = parseInt(match[1]);
-                    const seconds = parseFloat(match[2]);
-                    parsedLines.push({
-                        time: minutes * 60 + seconds,
-                        text: text
+                    result.push({
+                        time: parseInt(match[1]) * 60 + parseFloat(match[2]),
+                        text,
                     });
                 }
             }
         }
-
-        const progress = spotifyPresenter.currentSong.progressSeconds + this.BLUETOOTH_DELAY;
-
-        this.currentIndex = this.getActiveLyricIndex(parsedLines, progress);
-
-
-        // Lyrics format
-        // [0:00] Line contents
-        //   [0:10] Next line contents
-
-        if (this.currentIndex == -1) { // checking if lyrics exist, if not return blank line
-            this.currentLine = "";
-            this.nextLine = parsedLines.length > 0 ? // checking if first line exists, if not return blank line
-                `[${formatTime(parsedLines[0].time)}] ${parsedLines[0].text}` : // showing first line of lyrics as next line, if exists
-                "";
-
-        } else {
-            this.currentLine = `[${formatTime(parsedLines[this.currentIndex].time)}] ${parsedLines[this.currentIndex].text}`;
-            this.nextLine = this.currentIndex + 1 < parsedLines.length ? // checking if next line exists, if not return blank line
-                `[${formatTime(parsedLines[this.currentIndex + 1].time)}] ${parsedLines[this.currentIndex + 1].text}` :
-                "";
-        }
-
-        document.getElementById('current-lyric-line')!.textContent = this.currentLine;
-        document.getElementById('next-lyric-line')!.textContent = this.nextLine;
+        return result;
     }
 
-    getActiveLyricIndex(parsedLines: { time: number; text: string }[], progress: number): number {
-        // Edge case: No lyrics
-        if (!parsedLines || parsedLines.length === 0) return -1;
+    private getActiveIndex(lines: LyricLine[], progress: number): number {
+        if (lines.length === 0) return -1;
 
-        // Safety check: If the array changes (e.g., song skipped) and is now 
-        // shorter than our saved index, reset it to prevent out-of-bounds errors.
-        if (this.currentIndex >= parsedLines.length) {
-            this.currentIndex = 0;
+        // Clamp saved index in case the lyrics array shrank (e.g. song skipped)
+        if (this.currentIndex >= lines.length) this.currentIndex = 0;
+
+        // O(1) fast path: still on the same line
+        const atCurrent = progress >= lines[this.currentIndex].time;
+        const beforeNext = this.currentIndex === lines.length - 1
+            || progress < lines[this.currentIndex + 1].time;
+
+        if (atCurrent && beforeNext) return this.currentIndex;
+
+        // O(log n) binary search fallback (user scrubbed)
+        let lo = 0, hi = lines.length - 1, best = 0;
+        while (lo <= hi) {
+            const mid = (lo + hi) >> 1;
+            if (lines[mid].time <= progress) { best = mid; lo = mid + 1; }
+            else hi = mid - 1;
         }
+        this.currentIndex = best;
+        return best;
+    }
 
-        // 1. THE O(1) FAST PATH (Normal Playback)
-        const isForwardSequential: boolean = progress >= parsedLines[this.currentIndex].time;
-        const isBeforeNext: boolean = (this.currentIndex === parsedLines.length - 1) ||
-            (progress < parsedLines[this.currentIndex + 1].time);
-
-        if (isForwardSequential && isBeforeNext) {
-            return this.currentIndex;
-        }
-
-        // 2. THE O(log n) FALLBACK (User seeked/scrubbed)
-        let low: number = 0;
-        let high: number = parsedLines.length - 1;
-        let bestMatch: number = 0;
-
-        while (low <= high) {
-            const mid: number = Math.floor((low + high) / 2);
-
-            if (parsedLines[mid].time <= progress) {
-                bestMatch = mid; // This is a valid candidate
-                low = mid + 1;   // Check if there's a closer one later
-            } else {
-                high = mid - 1;  // The time is too far ahead, look earlier
-            }
-        }
-
-        // Update our state and return
-        this.currentIndex = bestMatch;
-        return this.currentIndex;
+    private setHTML(current: string, next: string) {
+        try {
+            const el1 = document.getElementById('current-lyric-line');
+            const el2 = document.getElementById('next-lyric-line');
+            if (el1) el1.textContent = current;
+            if (el2) el2.textContent = next;
+        } catch (_) { /* DOM may be unavailable in background */ }
     }
 }
 

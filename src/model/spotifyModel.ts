@@ -1,312 +1,236 @@
-import { SpotifyApi, Track, Episode } from "@spotify/web-api-ts-sdk";
+import { SpotifyApi, Track, Episode } from '@spotify/web-api-ts-sdk';
 import Song, { song_placeholder } from '../model/songModel';
-import { downloadImageAsGrayscalePng, downloadImage } from "./imageModel";
+import { downloadImageAsGrayscalePng, downloadImage } from './imageModel';
 import { storage } from '../utils/storage';
 import spotifyAuthModel from './spotifyAuthModel';
 
 let spotifysdk!: SpotifyApi;
 
-async function initSpotify(): Promise<void> {
+export async function initSpotify(): Promise<void> {
     const clientId = await storage.getItem('spotify_client_id');
     const clientSecret = await storage.getItem('spotify_client_secret');
-
-    // Check if we are returning from an auth redirect
     const codeData = await spotifyAuthModel.checkForAuthCode();
 
-    let refreshTokenToUse;
-    let authData;
-
+    let refreshToken: string | null = null;
     try {
-        const storedToken = await storage.getItem("spotify_refresh_token");
-        if (storedToken && storedToken.length > 20) {
-            refreshTokenToUse = storedToken;
-        }
+        const stored = await storage.getItem('spotify_refresh_token');
+        if (stored && stored.length > 20) refreshToken = stored;
     } catch (e) {
-        console.error("Error accessing storage:", e);
+        console.error('Error reading refresh token:', e);
     }
 
     if (!clientId || !clientSecret) {
-        // Logic for when info hasn't been entered yet
-        console.error("User not authenticated yet");
+        console.error('Spotify credentials not set');
+        return;
+    }
 
-    } else {
-        console.log(clientId + " - " + clientSecret)
-        const popup = document.getElementById('spotify-auth-popup');
-        if (popup) {
-            popup.style.display = 'none';
+    document.getElementById('spotify-auth-popup')!.style.display = 'none';
+
+    const exchangeRefreshToken = async (token: string) => {
+        const response = await fetch('https://accounts.spotify.com/api/token', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Authorization': 'Basic ' + btoa(`${clientId}:${clientSecret}`),
+            },
+            body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: token }),
+        });
+        const data = await response.json();
+        if (!data.access_token) throw new Error('Auth failed: ' + JSON.stringify(data));
+        return data;
+    };
+
+    try {
+        let authData: any;
+
+        if (codeData) {
+            authData = codeData;
+            if (authData.refresh_token) {
+                refreshToken = authData.refresh_token;
+                await storage.setItem('spotify_refresh_token', refreshToken!).catch(console.error);
+                console.log('Initial refresh token saved.');
+            }
+        } else if (refreshToken) {
+            authData = await exchangeRefreshToken(refreshToken);
+        } else {
+            console.error('No auth data available');
+            document.getElementById('spotify-auth-popup')!.style.display = 'flex';
+            return;
         }
 
-        // AUTHENTICATION FUNCTION
-        const authenticateWithToken = async (token: string) => {
-            console.log("Attempting auth with token ending in...", token.slice(-5));
-            const response = await fetch("https://accounts.spotify.com/api/token", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/x-www-form-urlencoded",
-                    "Authorization": "Basic " + btoa(clientId + ":" + clientSecret)
-                },
-                body: new URLSearchParams({
-                    grant_type: "refresh_token",
-                    refresh_token: token,
-                }),
-            });
-            const data = await response.json();
-            if (!data.access_token) throw new Error("Auth failed: " + JSON.stringify(data));
-            return data;
-        };
-
-        try {
-            if (codeData) {
-                authData = codeData;
-                if (authData.refresh_token) {
-                    refreshTokenToUse = authData.refresh_token;
-                    try {
-                        await storage.setItem("spotify_refresh_token", authData.refresh_token);
-                        console.log("Initial refresh token saved.");
-                    } catch (e) {
-                        console.error("Failed to persist token:", e);
-                    }
-                }
-            } else if (refreshTokenToUse) {
-                authData = await authenticateWithToken(refreshTokenToUse);
-            }
-
-            console.log("Access Token acquired!");
-
-            const newRefreshToken = authData.refresh_token;
-            if (newRefreshToken && newRefreshToken !== refreshTokenToUse) {
-                refreshTokenToUse = newRefreshToken;
-                try {
-                    await storage.setItem("spotify_refresh_token", newRefreshToken);
-                    console.log("Refreshed token persisted to storage.");
-                } catch (e) {
-                    console.error("Failed to persist token:", e);
-                }
-            }
-
-            // Initialize SDK
-            spotifysdk = SpotifyApi.withAccessToken(
-                clientId,
-                {
-                    access_token: authData.access_token,
-                    token_type: authData.token_type || "Bearer",
-                    expires_in: authData.expires_in,
-                    refresh_token: refreshTokenToUse,
-                    expires: Date.now() + (authData.expires_in * 1000)
-                }
-            );
-
-
-        } catch (e: any) {
-            console.error("Critical Auth Error:", e);
-            const popup = document.getElementById('spotify-auth-popup');
-            if (popup) {
-                popup.style.display = 'flex';
-            }
+        // Persist rotated refresh token if Spotify issued a new one
+        if (authData.refresh_token && authData.refresh_token !== refreshToken) {
+            refreshToken = authData.refresh_token;
+            await storage.setItem('spotify_refresh_token', refreshToken!).catch(console.error);
         }
+
+        spotifysdk = SpotifyApi.withAccessToken(clientId, {
+            access_token: authData.access_token,
+            token_type: authData.token_type ?? 'Bearer',
+            expires_in: authData.expires_in,
+            refresh_token: refreshToken ?? '',
+            expires: Date.now() + authData.expires_in * 1000,
+        });
+
+        console.log('Spotify SDK initialized.');
+    } catch (e) {
+        console.error('Spotify auth error:', e);
+        document.getElementById('spotify-auth-popup')!.style.display = 'flex';
     }
 }
-export { initSpotify };
 
 class SpotifyModel {
+    private lastSong = new Song();
     currentSong = new Song();
-    lastSong = new Song();
-
-    imageIndex = 1;
-    deviceId = "";
-
-    placeholder_duration = 0;
-
-    async fetchNextTrack(): Promise<Song | undefined> {
-        try {
-            const queueResponse = await spotifysdk.player.getUsersQueue();
-            if (queueResponse && queueResponse.queue && queueResponse.queue.length > 0) {
-                const nextTrack = queueResponse.queue[0];
-                if (nextTrack.type === 'track') {
-                    const track = nextTrack as Track;
-                    const nextSong = new Song();
-                    nextSong.addID(track.id);
-                    nextSong.addTitle(track.name);
-
-                    const artistNames = track.artists.map(artist => artist.name);
-                    nextSong.addArtist(artistNames[0]);
-                    nextSong.addFeatures(artistNames.slice(1));
-                    nextSong.addAlbum(track.album.name);
-
-                    return nextSong;
-                }
-            }
-            return undefined;
-        } catch (err: any) {
-            return song_placeholder;
-        }
-    }
+    deviceId = '';
 
     async fetchCurrentTrack(): Promise<Song> {
         let result;
         try {
-            result = await spotifysdk.player.getPlaybackState();    //checking playback state to see if media is playing
-
-            if (result && result.device && result.device.id) { // checking if playback state exists
-                if (this.deviceId !== result.device.id) { // checking if device ID changed
-                    console.log("Updated device ID from " + this.deviceId + " to " + result.device.id);
-                    this.deviceId = result.device.id;
-                }
-            } else { // Nothing is playing, or it's paused and Spotify isn't returning it.
-                if (this.lastSong && this.lastSong.songID !== "0") {
-                    this.lastSong.addisPlaying(false);
-                    return this.lastSong; //return last song as fallback
-                }
-                return song_placeholder; // return placeholder if last song doesn't exist
-            }
-        } catch (err: any) {
+            result = await spotifysdk.player.getPlaybackState();
+        } catch {
             return song_placeholder;
         }
 
-        if (!result || !result.item) {
-
-        }
-
-        if (result.item.type === 'track') { // checking if item is song or podcast
-            const track = result.item as Track;
-
-            if (track.id !== this.lastSong.songID) { // Check if the song has changed
-                console.log("[spotifyModel] Creating new song, ID changed from " + this.lastSong.songID + " to " + track.id);
-                const newSong = new Song();
-                newSong.addID(track.id);
-                newSong.addisPlaying(result.is_playing);
-                newSong.addTitle(track.name);
-
-                const artistNames = track.artists.map(artist => artist.name);
-                newSong.addArtist(artistNames[0]);
-                newSong.addFeatures(artistNames.slice(1));
-
-                newSong.addAlbum(track.album.name);
-                newSong.addDurationSeconds(track.duration_ms / 1000);
-                newSong.addProgressSeconds(result.progress_ms / 1000);
-                console.log("[spotifyModel] song time " + track.duration_ms / 1000 + " - " + result.progress_ms / 1000)
-                newSong.addArtRaw(await this.fetchAlbumArtPngGray(track));
-                newSong.addArtColor(await this.fetchAlbumArtPngColor(track));
-
-                newSong.addChangedState(true);
-
-                if (newSong.isPlaying) {
-                    console.log(
-                        `Updated playing song\n  - ${newSong.title} by ${newSong.artist}\n\n` +
-                        (newSong.features.length ? `, featuring ${newSong.features.join(", ")}` : "")
-                    );
-                } else {
-                    console.log(
-                        `Updated paused song\n ${newSong.title} by ${newSong.artist}` +
-                        (newSong.features.length ? `, featuring ${newSong.features.join(", ")}` : "")
-                    );
-                }
-
-                this.lastSong = newSong;
-                this.currentSong = newSong;
-                return newSong;
-
-            } else { // Song hasn't changed, just update dynamic fields
-                if (this.lastSong.isPlaying !== result.is_playing) {
-                    if (result.is_playing) {
-                        console.log(
-                            `Resumed: ${this.lastSong.title} by ${this.lastSong.artist}` +
-                            (this.lastSong.features.length ? `, featuring ${this.lastSong.features.join(", ")}` : "")
-                        );
-                    } else {
-                        console.log(
-                            `Paused: ${this.lastSong.title} by ${this.lastSong.artist}` +
-                            (this.lastSong.features.length ? `, featuring ${this.lastSong.features.join(", ")}` : "")
-                        );
-                    }
-                }
-
-                this.lastSong.addisPlaying(result.is_playing);
-
-                // Logic to prevent stutter in updates from Spotify when comparing to local computed progress
-                const serverProgress = result.progress_ms / 1000;
-                const localProgress = this.lastSong.progressSeconds;
-                const drift = Math.abs(serverProgress - localProgress);
-
-                if (drift > 0.5) {
-                    console.log(`[spotifyModel] Sync correcting: drift was ${drift.toFixed(2)}s`);
-                    this.lastSong.addProgressSeconds(serverProgress);
-                }
-
-                this.lastSong.addChangedState(false);
-
-                this.currentSong = this.lastSong;
+        if (!result?.device?.id) {
+            // Nothing playing — return last known song paused, or placeholder
+            if (this.lastSong.songID !== '0') {
+                this.lastSong.addisPlaying(false);
                 return this.lastSong;
             }
+            return song_placeholder;
+        }
+
+        if (this.deviceId !== result.device.id) {
+            console.log(`Device ID: ${this.deviceId} → ${result.device.id}`);
+            this.deviceId = result.device.id;
+        }
+
+        if (!result.item) return song_placeholder;
+
+        if (result.item.type === 'track') {
+            const track = result.item as Track;
+
+            if (track.id !== this.lastSong.songID) {
+                // New song — build it and return immediately; fetch art in background
+                const song = new Song();
+                song.addID(track.id);
+                song.addTitle(track.name);
+                song.addArtist(track.artists[0].name);
+                song.addFeatures(track.artists.slice(1).map(a => a.name));
+                song.addAlbum(track.album.name);
+                song.addDurationSeconds(track.duration_ms / 1000);
+                song.addProgressSeconds(result.progress_ms / 1000);
+                song.addisPlaying(result.is_playing);
+                song.addChangedState(true);
+
+                console.log(`Now playing: ${song.title} by ${song.artist}`);
+
+                this.lastSong = song;
+                this.currentSong = song;
+
+                // Art fetch doesn't block — patches song object when ready
+                this.fetchArtAsync(track, song);
+
+                return song;
+            }
+
+            // Same song — update dynamic fields only
+            if (this.lastSong.isPlaying !== result.is_playing) {
+                console.log(result.is_playing
+                    ? `Resumed: ${this.lastSong.title}`
+                    : `Paused: ${this.lastSong.title}`
+                );
+            }
+            this.lastSong.addisPlaying(result.is_playing);
+
+            const serverProgress = result.progress_ms / 1000;
+            const drift = Math.abs(serverProgress - this.lastSong.progressSeconds);
+            if (drift > 0.5) {
+                console.log(`[Spotify] Drift corrected: ${drift.toFixed(2)}s`);
+                this.lastSong.addProgressSeconds(serverProgress);
+            }
+
+            this.lastSong.addChangedState(false);
+            this.currentSong = this.lastSong;
+            return this.lastSong;
 
         } else if (result.item.type === 'episode') {
             const episode = result.item as Episode;
-            const tempSong = new Song();
-
-            tempSong.type = "Episode";
-            tempSong.addTitle(episode.name);
-            tempSong.addID(episode.id);
-
-            console.log(`Now Playing Episode: ${episode.name} (Show: ${episode.show.name})`);
-            this.currentSong = tempSong;
-
-
-            return tempSong;
+            const song = new Song();
+            song.type = 'Episode';
+            song.addTitle(episode.name);
+            song.addID(episode.id);
+            console.log(`Now playing episode: ${episode.name}`);
+            this.currentSong = song;
+            return song;
         }
-        console.log("Broken somehow, return outside of logic")
-        return new Song();
+
+        return song_placeholder;
     }
 
-    async fetchAlbumArtPngGray(track: Track): Promise<Uint8Array> {
-        let images = track.album.images;
-
-        let art = await downloadImageAsGrayscalePng(images[0].url, 100, 100);
-        return art;
+    async fetchNextTrack(): Promise<Song | undefined> {
+        try {
+            const queue = await spotifysdk.player.getUsersQueue();
+            const next = queue?.queue?.[0];
+            if (next?.type === 'track') {
+                const track = next as Track;
+                const song = new Song();
+                song.addID(track.id);
+                song.addTitle(track.name);
+                song.addArtist(track.artists[0].name);
+                song.addFeatures(track.artists.slice(1).map(a => a.name));
+                song.addAlbum(track.album.name);
+                return song;
+            }
+        } catch {
+            // Queue unavailable — not critical
+        }
+        return undefined;
     }
 
-    async fetchAlbumArtPngColor(track: Track): Promise<Uint8Array> {
-        let images = track.album.images;
-
-        let art = await downloadImage(images[0].url, 132, 132); //fetching first image, resizing down to fit space
-        return art;
+    private async fetchArtAsync(track: Track, song: Song): Promise<void> {
+        try {
+            const url = track.album.images[0].url;
+            const [raw, color] = await Promise.all([
+                downloadImageAsGrayscalePng(url, 100, 100),
+                downloadImage(url, 132, 132),
+            ]);
+            // Only patch if this song is still current
+            if (this.currentSong === song) {
+                song.addArtRaw(raw);
+                song.addArtColor(color);
+                console.log(`[Spotify] Art ready for: ${song.title}`);
+            }
+        } catch (e) {
+            console.error('[Spotify] Art fetch failed:', e);
+        }
     }
 
     async song_Pause() {
         try {
-            if (this.currentSong) {
-                this.currentSong.addisPlaying(false);
-            }
+            this.currentSong?.addisPlaying(false);
             await spotifysdk.player.pausePlayback(this.deviceId);
-        } catch (e) {
-            console.error("Failed to pause playback:", e);
-        }
+        } catch (e) { console.error('Pause failed:', e); }
     }
 
     async song_Play() {
         try {
-            if (this.currentSong) {
-                this.currentSong.addisPlaying(true);
-            }
+            this.currentSong?.addisPlaying(true);
             await spotifysdk.player.startResumePlayback(this.deviceId);
-        } catch (e) {
-            console.error("Failed to play playback:", e);
-        }
+        } catch (e) { console.error('Play failed:', e); }
     }
 
     async song_Back() {
         try {
             await spotifysdk.player.skipToPrevious(this.deviceId);
-        } catch (e) {
-            console.error("Failed to skip to previous track:", e);
-        }
+        } catch (e) { console.error('Back failed:', e); }
     }
 
     async song_Forward() {
         try {
             await spotifysdk.player.skipToNext(this.deviceId);
-        } catch (e) {
-            console.error("Failed to skip to next track:", e);
-        }
+        } catch (e) { console.error('Forward failed:', e); }
     }
 }
 
