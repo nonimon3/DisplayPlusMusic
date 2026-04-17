@@ -87,19 +87,23 @@ class ViewPresenter {
     }
 
     async saveAndAuthorize() {
-        alert("Save pressed");
-        const clientId = (document.getElementById('client-id') as HTMLInputElement).value.trim();
-        const clientSecret = (document.getElementById('client-secret') as HTMLInputElement).value.trim();
+        try {
+            const clientId = (document.getElementById('client-id') as HTMLInputElement).value.trim();
+            const clientSecret = (document.getElementById('client-secret') as HTMLInputElement).value.trim();
 
-        if (!clientId || !clientSecret) {
-            alert("Please provide both Client ID and Client Secret.");
-            return;
+            if (!clientId || !clientSecret) {
+                alert("Please provide both Client ID and Client Secret.");
+                return;
+            }
+
+            await storage.setItem('spotify_client_id', clientId);
+            await storage.setItem('spotify_client_secret', clientSecret);
+
+            await spotifyAuthModel.generateAuthUrl(clientId);
+        } catch (e) {
+            console.error("[viewPresenter] saveAndAuthorize failed:", e);
+            alert("Auth setup failed: " + (e instanceof Error ? e.message : String(e)));
         }
-
-        await storage.setItem('spotify_client_id', clientId);
-        await storage.setItem('spotify_client_secret', clientSecret);
-
-        spotifyAuthModel.generateAuthUrl(clientId);
     }
 
     async clearLocalStorage() {
