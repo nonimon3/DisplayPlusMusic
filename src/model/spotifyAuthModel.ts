@@ -58,6 +58,8 @@ class SpotifyAuthModel {
      * Exchanges an auth code for a refresh token
      */
     async exchangeCodeForToken(code: string, clientId: string, clientSecret: string): Promise<any | null> {
+        const redirect = this.REDIRECT_URI;
+        dbg("exchange: POST /api/token redirect_uri=" + redirect + " cid len=" + clientId.length + " sec len=" + clientSecret.length);
         try {
             const response = await fetch('https://accounts.spotify.com/api/token', {
                 method: 'POST',
@@ -68,11 +70,14 @@ class SpotifyAuthModel {
                 body: new URLSearchParams({
                     grant_type: 'authorization_code',
                     code: code,
-                    redirect_uri: this.REDIRECT_URI,
+                    redirect_uri: redirect,
                 }),
             });
 
-            const data = await response.json();
+            const text = await response.text();
+            dbg("exchange: HTTP " + response.status + " body=" + text.substring(0, 220));
+            let data: any;
+            try { data = JSON.parse(text); } catch { data = { raw: text }; }
 
             if (data.refresh_token && data.access_token) {
                 return data;
@@ -82,6 +87,7 @@ class SpotifyAuthModel {
             }
         } catch (err) {
             console.error('Network error exchanging token:', err);
+            dbg("exchange: NETWORK ERROR " + (err instanceof Error ? err.message : String(err)));
             return null;
         }
     }
