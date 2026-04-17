@@ -1,11 +1,16 @@
 import { storage } from '../utils/storage';
 
 class SpotifyAuthModel {
-    // Generate the redirect URI. Spotify strictly forbids HTTP IP addresses other than 127.0.0.1.
+    // Generate the redirect URI dynamically from the current page origin/pathname,
+    // so the same build works for any GitHub Pages fork without code changes.
+    // Spotify strictly forbids HTTP IP addresses other than 127.0.0.1.
     get REDIRECT_URI() {
-        // if (window.location.hostname === '127.0.0.1') {
-        //     return "http://127.0.0.1:5173/";
-        // }
+        if (typeof window !== "undefined" && window.location) {
+            const path = window.location.pathname.endsWith("/")
+                ? window.location.pathname
+                : window.location.pathname + "/";
+            return window.location.origin + path;
+        }
         return "https://oliemanq.github.io/DisplayPlusMusic/";
     }
     SCOPES = 'user-modify-playback-state user-read-playback-state';
