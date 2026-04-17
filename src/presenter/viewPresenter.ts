@@ -3,6 +3,7 @@ import { storage } from '../utils/storage';
 import spotifyAuthModel from '../model/spotifyAuthModel';
 import Song from '../model/songModel';
 import { formatTime } from '../Scripts/formatTime';
+import { dbg } from '../Scripts/debugBanner';
 
 class ViewPresenter {
     private lastSongID: string = ""
@@ -88,6 +89,7 @@ class ViewPresenter {
 
     async saveAndAuthorize() {
         try {
+            dbg("saveAndAuthorize: start");
             const clientId = (document.getElementById('client-id') as HTMLInputElement).value.trim();
             const clientSecret = (document.getElementById('client-secret') as HTMLInputElement).value.trim();
 
@@ -96,12 +98,16 @@ class ViewPresenter {
                 return;
             }
 
+            dbg("saveAndAuthorize: saving credentials (cid len=" + clientId.length + ")");
             await storage.setItem('spotify_client_id', clientId);
             await storage.setItem('spotify_client_secret', clientSecret);
 
+            dbg("saveAndAuthorize: calling generateAuthUrl");
             await spotifyAuthModel.generateAuthUrl(clientId);
+            dbg("saveAndAuthorize: returned from generateAuthUrl (no nav?)");
         } catch (e) {
             console.error("[viewPresenter] saveAndAuthorize failed:", e);
+            dbg("saveAndAuthorize ERROR: " + (e instanceof Error ? e.message : String(e)));
             alert("Auth setup failed: " + (e instanceof Error ? e.message : String(e)));
         }
     }

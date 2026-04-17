@@ -1,4 +1,5 @@
 import { storage } from '../utils/storage';
+import { dbg } from '../Scripts/debugBanner';
 
 class SpotifyAuthModel {
     // Generate the redirect URI dynamically from the current page origin/pathname,
@@ -30,22 +31,27 @@ class SpotifyAuthModel {
      * Initiates the Auth Flow by redirecting the user to Spotify
      */
     async generateAuthUrl(clientId: string): Promise<void> {
-        console.log("Using Redirect URI: " + this.REDIRECT_URI);
+        const redirect = this.REDIRECT_URI;
+        console.log("Using Redirect URI: " + redirect);
+        dbg("generateAuthUrl: redirect_uri=" + redirect);
         const state = this.generateRandomString(16);
         await storage.setItem('spotify_auth_state', state);
+        dbg("generateAuthUrl: saved state=" + state.substring(0, 6) + "…");
 
         const authUrl = new URL("https://accounts.spotify.com/authorize");
         const params = {
             response_type: 'code',
             client_id: clientId,
             scope: this.SCOPES,
-            redirect_uri: this.REDIRECT_URI,
+            redirect_uri: redirect,
             state: state,
         };
 
         authUrl.search = new URLSearchParams(params).toString();
+        const finalUrl = authUrl.toString();
+        dbg("generateAuthUrl: navigating to Spotify (" + finalUrl.length + " chars)");
         // Redirect the whole page
-        window.location.href = authUrl.toString();
+        window.location.href = finalUrl;
     }
 
     /**
@@ -88,15 +94,25 @@ class SpotifyAuthModel {
         const urlParams = new URLSearchParams(window.location.search);
         const code = urlParams.get('code');
         const state = urlParams.get('state');
+        const errorParam = urlParams.get('error');
 
-        if (!code) return null;
+        if (errorParam) {
+            dbg("checkForAuthCode: spotify returned error=" + errorParam);
+        }
+        if (!code) {
+            dbg("checkForAuthCode: no ?code in URL");
+            return null;
+        }
+        dbg("checkForAuthCode: code present, state=" + (state || "").substring(0, 6) + "…");
 
         // Clean the URL
         window.history.replaceState({}, document.title, window.location.pathname);
 
         const savedState = await storage.getItem('spotify_auth_state');
+        dbg("checkForAuthCode: savedState=" + (savedState || "<null>").substring(0, 6) + "…");
         if (state !== savedState) {
             console.error("State mismatch");
+            dbg("checkForAuthCode: STATE MISMATCH (got=" + (state || "<null>").substring(0,6) + " saved=" + (savedState || "<null>").substring(0,6) + ")");
             return null;
         }
         await storage.removeItem('spotify_auth_state');
@@ -104,9 +120,15 @@ class SpotifyAuthModel {
         const clientId = await storage.getItem('spotify_client_id');
         const clientSecret = await storage.getItem('spotify_client_secret');
 
-        if (!clientId || !clientSecret) return null;
+        if (!clientId || !clientSecret) {
+            dbg("checkForAuthCode: clientId/Secret missing in storage");
+            return null;
+        }
 
-        return await this.exchangeCodeForToken(code, clientId, clientSecret);
+        dbg("checkForAuthCode: exchanging code for token…");
+        const result = await this.exchangeCodeForToken(code, clientId, clientSecret);
+        dbg("checkForAuthCode: exchange " + (result ? "OK (have refresh_token)" : "FAILED"));
+        return result;
     }
 }
 

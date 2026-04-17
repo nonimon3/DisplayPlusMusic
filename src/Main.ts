@@ -5,10 +5,13 @@ import { enableMobileConsole } from './Scripts/debugConsole';
 import { fetchLyrics } from './model/lyricsModel';
 import pollingPresenter from './presenter/pollingPresenter';
 import viewPresenter from './presenter/viewPresenter';
+import { dbg } from './Scripts/debugBanner';
 
 async function main() {
     // enableMobileConsole();
     console.log("App starting...");
+    dbg("App starting. URL=" + window.location.href);
+    dbg("flutter_inappwebview present: " + (typeof (window as any).flutter_inappwebview !== "undefined"));
 
     viewPresenter.initListeners();
 
