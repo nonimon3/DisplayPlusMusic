@@ -49,9 +49,34 @@ class SpotifyAuthModel {
 
         authUrl.search = new URLSearchParams(params).toString();
         const finalUrl = authUrl.toString();
-        dbg("generateAuthUrl: navigating to Spotify (" + finalUrl.length + " chars)");
-        // Redirect the whole page
-        window.location.href = finalUrl;
+        dbg("generateAuthUrl: opening Spotify auth (" + finalUrl.length + " chars)");
+
+        // EVEN Hub's WebView may block in-WebView navigation to unrelated
+        // origins (spotify.com). Try the external-browser paths first.
+        try {
+            const a = document.createElement('a');
+            a.href = finalUrl;
+            a.target = '_blank';
+            a.rel = 'noopener';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            dbg("generateAuthUrl: anchor _blank dispatched");
+        } catch (e) {
+            dbg("generateAuthUrl: anchor click failed: " + (e instanceof Error ? e.message : String(e)));
+        }
+        try {
+            const opened = window.open(finalUrl, '_blank');
+            dbg("generateAuthUrl: window.open = " + (opened ? "ok" : "blocked/null"));
+        } catch (e) {
+            dbg("generateAuthUrl: window.open threw: " + (e instanceof Error ? e.message : String(e)));
+        }
+        // Fallback to direct navigation after a short delay so the above
+        // attempts can register before the page unloads.
+        setTimeout(() => {
+            dbg("generateAuthUrl: fallback to location.href");
+            window.location.href = finalUrl;
+        }, 500);
     }
 
     /**
