@@ -50,6 +50,9 @@ class SpotifyAuthModel {
         authUrl.search = new URLSearchParams(params).toString();
         const finalUrl = authUrl.toString();
         dbg("generateAuthUrl: navigating to Spotify (" + finalUrl.length + " chars)");
+        // Blocking alert so the user can read the redirect_uri before the page
+        // navigates away — the debug banner is wiped on navigation.
+        alert("redirect_uri=" + redirect);
         // Redirect the whole page
         window.location.href = finalUrl;
     }
