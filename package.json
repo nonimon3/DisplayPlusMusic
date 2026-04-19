@@ -18,7 +18,7 @@
     "dev": "evenhub qr --path \"/\" --http && vite",
     "build": "vite build",
     "preview": "vite preview",
-    "pack": "node scripts/bump-id.js && npm run build && evenhub pack app.json dist",
+    "pack": "node scripts/bump-id.js && vite build --mode evenhub && evenhub pack app.json dist",
     "qr": "evenhub qr -p 5173 --path \"/\" --http",
     "sim": "vite && evenhub-simulator http://localhost:5173"
   },
