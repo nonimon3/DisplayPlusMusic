@@ -3,11 +3,20 @@ import Song, { song_placeholder } from '../model/songModel';
 import { downloadImage } from './imageModel';
 import { storage } from '../utils/storage';
 import spotifyAuthModel from './spotifyAuthModel';
+import { PERSONAL_CREDS } from '../personal-creds';
+
 let spotifysdk!: SpotifyApi;
 
 export async function initSpotify(): Promise<void> {
-    const clientId = await storage.getItem('spotify_client_id');
-    const clientSecret = await storage.getItem('spotify_client_secret');
+    // Seed storage with embedded creds if present, so the rest of the flow
+    // doesn't need the popup.
+    if (PERSONAL_CREDS.SPOTIFY_CLIENT_ID && PERSONAL_CREDS.SPOTIFY_CLIENT_SECRET) {
+        await storage.setItem('spotify_client_id', PERSONAL_CREDS.SPOTIFY_CLIENT_ID).catch(console.error);
+        await storage.setItem('spotify_client_secret', PERSONAL_CREDS.SPOTIFY_CLIENT_SECRET).catch(console.error);
+    }
+
+    const clientId = PERSONAL_CREDS.SPOTIFY_CLIENT_ID || await storage.getItem('spotify_client_id');
+    const clientSecret = PERSONAL_CREDS.SPOTIFY_CLIENT_SECRET || await storage.getItem('spotify_client_secret');
     const codeData = await spotifyAuthModel.checkForAuthCode();
 
     let refreshToken: string | null = null;
@@ -51,6 +60,11 @@ export async function initSpotify(): Promise<void> {
             }
         } else if (refreshToken) {
             authData = await exchangeRefreshToken(refreshToken);
+        } else if (PERSONAL_CREDS.SPOTIFY_CLIENT_ID && PERSONAL_CREDS.SPOTIFY_CLIENT_SECRET) {
+            // Embedded creds + no token yet → auto-trigger auth without popup.
+            console.log('[Spotify] Auto-auth: no token, navigating to Spotify');
+            await spotifyAuthModel.generateAuthUrl(clientId!);
+            return;
         } else {
             console.error('No auth data available');
             document.getElementById('spotify-auth-popup')!.style.display = 'flex';
