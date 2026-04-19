@@ -45,6 +45,13 @@ class SpotifyAuthModel {
         authUrl.search = new URLSearchParams(params).toString();
         const finalUrl = authUrl.toString();
         dbg("generateAuthUrl: navigating to Spotify (" + finalUrl.length + " chars)");
+        // Diagnostic: show exactly what redirect_uri and client_id prefix we're sending
+        // so the user can byte-compare with their Spotify dashboard entry.
+        alert(
+            "redirect_uri=\n" + redirect +
+            "\n\nclient_id starts with: " + clientId.substring(0, 8) +
+            "\n(cid len=" + clientId.length + ")"
+        );
         // Redirect the whole page
         window.location.href = finalUrl;
     }
