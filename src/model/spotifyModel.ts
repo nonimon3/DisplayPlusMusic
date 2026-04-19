@@ -1,6 +1,6 @@
 import { SpotifyApi, Track, Episode } from '@spotify/web-api-ts-sdk';
 import Song, { song_placeholder } from '../model/songModel';
-import { downloadImageAsGrayscalePng, downloadImage } from './imageModel';
+import { downloadImage } from './imageModel';
 import { storage } from '../utils/storage';
 import spotifyAuthModel from './spotifyAuthModel';
 
@@ -192,13 +192,9 @@ class SpotifyModel {
     private async fetchArtAsync(track: Track, song: Song): Promise<void> {
         try {
             const url = track.album.images[0].url;
-            const [raw, color] = await Promise.all([
-                downloadImageAsGrayscalePng(url, 100, 100),
-                downloadImage(url, 132, 132),
-            ]);
+            const color = await downloadImage(url, 132, 132);
             // Only patch if this song is still current
             if (this.currentSong === song) {
-                song.addArtRaw(raw);
                 song.addArtColor(color);
                 console.log(`[Spotify] Art ready for: ${song.title}`);
             }

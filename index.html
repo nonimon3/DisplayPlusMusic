@@ -1,321 +1,400 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
 
 <head>
     <meta charset="UTF-8">
-    <title>Even Realities App</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Spotify Lyrics for G1</title>
     <meta http-equiv="Content-Security-Policy"
         content="script-src 'self' 'unsafe-inline' https://accounts.scdn.co https://sdk.scdn.co blob:; worker-src 'self' blob:;" />
 </head>
 
 <body>
-    <!-- handles starting logic and starts button listeners-->
     <script type="module" src="/src/Main.ts"></script>
 
-    <!-- Main UI -->
-    <span id="album-art-container" class="container">
-        <img id="album-art" />
-        <span id="song-info-container" class="subcontainer">
-            <p id="song-name" class="song-info"></p>
-            <p id="song-artist" class="song-info"></p>
-            <p id="song-album" class="song-info"></p>
-        </span>
-        <span id="detailed-song-info-container" class="subcontainer">
-            <p id="song-current-time" class="song-info"></p>
-            <p id="divider" class="song-info"> - </p>
-            <p id="song-total-time" class="song-info"></p>
-        </span>
-    </span>
-    <span id="mini-buttons-container" class="container">
-        <button class="button" id="previous-track">Previous track</button>
-        <button class="button" id="play-pause">Play/Pause</button>
-        <button class="button" id="skip-track">Skip track</button>
-    </span>
-    <span class="container" id="lyrics-container">
-        <p id='current-lyric-line'></p>
-        <p id='next-lyric-line'></p>
-    </span>
-    <span id="small-button-container" class="container">
-        <button class="small-button danger" id="clear-local-refresh-token">Logout</button>
-    </span>
+    <!-- Main screen (post-auth): nothing but status + logout. Debug banner floats on top. -->
+    <main class="app">
+        <header class="topbar">
+            <span class="brand-dot" aria-label="connected"></span>
+            <button class="icon-btn" id="clear-local-refresh-token" title="Logout">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                <span class="icon-btn-label">Logout</span>
+            </button>
+        </header>
 
-    <!-- Popup for spotify Auth -->
-    <div id="spotify-auth-popup" class="popup">
-        <p class="popup-title">
-            Spotify Setup Required
-        </p>
-        <span class="popup-label">
-            <h4>Spotify Premium is required for this app due to spotify restrictions</h4>
-            <p> To get started, head to </p>
-            <p class="popup-link">https://developer.spotify.com/dashboard/</p>
-            <p>in a browser and sign in. From there, create an app and add a name and description of your choice.
-                <br>Then add <br>
+        <section class="status">
+            <div class="status-dot"></div>
+            <p class="status-title">接続中</p>
+            <p class="status-sub">グラス側に表示されています。</p>
+            <p class="status-hint">画面上部の黒いバーはデバッグログです (ダブルタップで非表示)。</p>
+        </section>
+
+        <footer class="credit">
+            <p>Originally inspired by
+                <a href="https://github.com/Oliemanq/DisplayPlusMusic" target="_blank" rel="noopener">Oliemanq / DisplayPlusMusic</a>.
+                Independently rebuilt and redesigned.
             </p>
-            <p class="popup-link">https://oliemanq.github.io/DisplayPlusMusic/</p>
-            <p>as a Redirect URI and select 'Web API' at the bottom. <br>
-                Finally, copy your client ID and client secret from there and paste them below.</p>
-        </span>
+        </footer>
+    </main>
 
+    <!-- Setup popup: Spotify auth (shown only when not authenticated) -->
+    <div id="spotify-auth-popup" class="popup" role="dialog" aria-label="Spotify Setup">
+        <div class="popup-inner">
+            <h2 class="popup-title">Spotify セットアップ</h2>
+            <p class="popup-lead">Spotify Premium が必要です (API 制限のため)。</p>
 
-        <input class="popup-input" id="client-id" placeholder="Client ID">
-        <input class="popup-input" type="password" id="client-secret" placeholder="Client Secret">
+            <ol class="popup-steps">
+                <li>
+                    <span class="step-num">1</span>
+                    <div class="step-body">
+                        <p>下の URL を開いて、Developer アカウントでログイン → 新しいアプリを作成</p>
+                        <p class="popup-link">https://developer.spotify.com/dashboard/</p>
+                    </div>
+                </li>
+                <li>
+                    <span class="step-num">2</span>
+                    <div class="step-body">
+                        <p>Redirect URI に以下を追加し、"Web API" をチェック</p>
+                        <p class="popup-link">https://nonimon3.github.io/DisplayPlusMusic/</p>
+                    </div>
+                </li>
+                <li>
+                    <span class="step-num">3</span>
+                    <div class="step-body">
+                        <p>Client ID と Client Secret を下の欄に貼り付けて保存</p>
+                    </div>
+                </li>
+            </ol>
 
-        <span id="spacer"></span>
+            <label class="field">
+                <span class="field-label">Client ID</span>
+                <input class="field-input" id="client-id" autocomplete="off" spellcheck="false" placeholder="Spotify Client ID">
+            </label>
+            <label class="field">
+                <span class="field-label">Client Secret</span>
+                <input class="field-input" id="client-secret" type="password" autocomplete="off" spellcheck="false" placeholder="Spotify Client Secret">
+            </label>
 
-        <button class="small-button accent" id="save-auth">Save & Authorize</button>
+            <button class="popup-submit" id="save-auth">Save &amp; Authorize</button>
+        </div>
+    </div>
+
+    <!--
+        Hidden DOM nodes: viewPresenter / lyricsPresenter update these by ID and
+        guard with `if (el)`, so removing them is safe — but we keep them around
+        (display:none) so a future re-enable doesn't need markup changes.
+    -->
+    <div hidden aria-hidden="true" style="display:none">
+        <img id="album-art" />
+        <span id="song-name"></span>
+        <span id="song-artist"></span>
+        <span id="song-album"></span>
+        <span id="song-current-time"></span>
+        <span id="song-total-time"></span>
+        <button id="previous-track"></button>
+        <button id="play-pause"></button>
+        <button id="skip-track"></button>
+        <p id="current-lyric-line"></p>
+        <p id="next-lyric-line"></p>
     </div>
 
     <style>
-        @keyframes slideUp {
-            from {
-                transform: translateY(100%);
-            }
-
-            to {
-                transform: translateY(0%);
-            }
-        }
-
         :root {
-            /*gray*/
-            --background: rgba(238, 238, 238, 1.0);
-
-            --button-foreground-light: rgba(255, 255, 255, 1.0);
-            --button-foreground-dark: rgb(35, 35, 35);
-            --button-foreground-danger: rgb(255, 84, 84);
-            --button-foreground-accent: rgb(254, 249, 145);
-
-            --button-background-light: rgba(228, 228, 228, 1.0);
-            --button-background-dark: rgb(35, 35, 35);
-            --button-background-danger: rgb(255, 84, 84);
-            --button-background-accent: rgb(254, 249, 145);
-
-            --text-dark: rgba(35, 35, 35, 1.0);
-            --text-light: rgba(255, 255, 255, 1.0);
-
-            --text-field-background: rgba(35, 35, 35, 0.08);
-
-            --accent: rgb(254, 249, 145);
+            --bg-0:       #07080a;
+            --bg-1:       #101216;
+            --bg-2:       #181b20;
+            --bg-3:       #22272f;
+            --surface:    rgba(255, 255, 255, 0.04);
+            --surface-hi: rgba(255, 255, 255, 0.08);
+            --border:     rgba(255, 255, 255, 0.08);
+            --text-0:     #f4f6f8;
+            --text-1:     #c7cdd4;
+            --text-2:     #888f98;
+            --text-3:     #5c636c;
+            --accent:     #1db954;
+            --accent-hi:  #26d965;
+            --danger:     #ff5e5e;
+            --radius-sm:  8px;
+            --radius:     14px;
+            --radius-lg:  22px;
+            --fs-xs:   12px;
+            --fs-sm:   14px;
+            --fs-md:   16px;
+            --fs-lg:   20px;
+            --fs-xl:   26px;
+            --fs-2xl:  32px;
+            --shadow:  0 12px 40px rgba(0, 0, 0, 0.4);
+            --ease:    cubic-bezier(0.32, 0.72, 0, 1);
         }
 
-        body {
-            background: var(--background);
-            font-family: "Inter", "sans-serif";
-            color: var(--text);
-        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
-        .popup {
-            position: fixed;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
-            top: auto;
-            overflow-y: auto;
+        html, body {
+            margin: 0;
+            padding: 0;
+            min-height: 100%;
+            background: var(--bg-0);
+            color: var(--text-0);
+            font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+                         "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+            font-size: var(--fs-md);
+            line-height: 1.4;
             overflow-x: hidden;
-
-
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 85vh;
-            padding: 24px 24px 80px 24px;
-            z-index: 1000;
-            gap: 12px;
-
-            border-radius: 6px 6px 0 0;
-            font-size: 36px;
-
-            background: var(--background);
-            box-shadow: 0 0 0 1000vw rgba(0, 0, 0, 0.5);
-
-            transform: translateY(100%);
-            animation: slideUp 0.6s cubic-bezier(0.32, 0.72, 0, 1) forwards;
         }
 
-        .popup-title {
-            font-weight: bold;
-            font-size: 48px;
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(1000px 500px at 50% -200px, rgba(29,185,84,0.18), transparent 60%),
+                radial-gradient(800px 400px at 80% 110%, rgba(72,29,185,0.12), transparent 60%);
+            pointer-events: none;
+            z-index: 0;
         }
 
-        .popup-link {
-            background-color: var(--accent);
-            color: var(--text-dark);
-
-            padding-left: 10px;
-            padding-right: 10px;
-
-            margin-left: 90px;
-            margin-right: 90px;
-            margin-top: 10px;
-            margin-bottom: 10px;
-
-            border-radius: 6px;
-
-            cursor: pointer;
-            transition: opacity 0.2s;
-        }
-
-        .popup-link:active {
-            opacity: 0.5;
-        }
-
-        .popup-label {
-            text-align: center;
-            flex-direction: column;
-
-            width: 100%;
-            margin-left: 6px;
-            margin-right: 6px;
-            padding-top: 12px;
-            padding-bottom: 12px;
-            margin-bottom: 12px;
-
-            background: var(--button-foreground-light);
-            border-radius: 6px;
-            font-size: 40px;
-        }
-
-        .popup-input {
-            /* Match button profile */
-            display: block;
-            box-sizing: border-box;
-            width: calc(100% - 12px);
-            height: 96px;
-            padding: 0 16px;
-            /* Match button padding */
-
-            margin-left: 6px;
-            margin-right: 6px;
-            margin-bottom: 12px;
-
-            background: var(--text-field-background);
-            color: var(--text);
-            border: none;
-            outline: none;
-            border-radius: 6px;
-            font-size: 40px;
-            text-align: center;
-        }
-
-        #spacer {
-            height: 100%;
-            flex: 1;
-        }
-
-        .container {
-            margin-top: 20px;
-            margin-bottom: 20px;
-
+        /* ===== Layout ===== */
+        .app {
+            position: relative;
+            z-index: 1;
+            min-height: 100vh;
+            max-width: 520px;
+            margin: 0 auto;
+            padding: calc(env(safe-area-inset-top, 12px) + 12px) 20px 40px;
             display: flex;
-            margin-left: 12px;
-            margin-right: 12px;
-            flex-direction: row;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .topbar {
+            display: flex;
             align-items: center;
             justify-content: space-between;
-            font-size: 24px;
-            gap: 12px;
+            padding: 4px 2px;
+            margin-top: 33vh;  /* keep clear of the floating debug banner at the top */
+        }
+        .brand-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 12px var(--accent);
         }
 
-        #album-art-container,
-        #lyrics-container {
-            margin: 12px;
-            padding-left: 48px;
-            border-radius: 6px;
-            display: flex;
-            flex-direction: row;
+        .icon-btn {
+            background: transparent;
+            color: var(--text-2);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 8px 14px;
+            display: inline-flex;
             align-items: center;
-            justify-content: left;
-            font-size: 24px;
-            background-color: var(--button-foreground-light);
+            gap: 8px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: var(--fs-sm);
+            transition: color 0.2s, border-color 0.2s, background 0.2s;
         }
+        .icon-btn:active { transform: scale(0.97); }
+        .icon-btn:hover { color: var(--danger); border-color: var(--danger); }
+        .icon-btn-label { font-weight: 600; }
 
-        #lyrics-container {
-            flex-direction: column;
-        }
-
-        .subcontainer {
+        /* ===== Status card ===== */
+        .status {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 28px 24px;
             display: flex;
             flex-direction: column;
-            align-items: left;
-            justify-content: center;
-
-            gap: 10px;
-            margin-top: 20px;
-            margin-bottom: 20px;
-            padding-left: 40px;
+            align-items: center;
+            text-align: center;
+            gap: 6px;
         }
-
-        #detailed-song-info-container {
-            flex-direction: row;
+        .status-dot {
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 16px var(--accent);
+            margin-bottom: 6px;
+            animation: pulse 2s ease-in-out infinite;
         }
-
-        .song-info {
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50%      { opacity: 0.55; transform: scale(0.85); }
+        }
+        .status-title {
             margin: 0;
+            font-size: var(--fs-lg);
+            font-weight: 700;
+        }
+        .status-sub {
+            margin: 0;
+            color: var(--text-1);
+            font-size: var(--fs-sm);
+        }
+        .status-hint {
+            margin-top: 10px;
+            color: var(--text-3);
+            font-size: var(--fs-xs);
         }
 
-        .button {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: none;
-            cursor: pointer;
+        .credit {
+            margin-top: auto;
+            padding-top: 24px;
+            text-align: center;
+            color: var(--text-3);
+            font-size: var(--fs-xs);
+            line-height: 1.5;
+        }
+        .credit p { margin: 0; }
+        .credit a {
+            color: var(--text-2);
+            text-decoration: none;
+            border-bottom: 1px solid var(--border);
+        }
+        .credit a:hover { color: var(--accent); border-color: var(--accent); }
 
-            border-radius: 6px;
-            height: 5vh;
-            font-size: 36px;
+        /* ===== Popup ===== */
+        @keyframes popupSlide {
+            from { transform: translateY(100%); }
+            to   { transform: translateY(0%); }
+        }
+        @keyframes popupFade {
+            from { opacity: 0; }
+            to   { opacity: 1; }
+        }
+        .popup {
+            position: fixed;
+            inset: auto 0 0 0;
+            height: min(92vh, 760px);
+            z-index: 100;
+            background: var(--bg-1);
+            border-top: 1px solid var(--border);
+            border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+            overflow-y: auto;
+            overflow-x: hidden;
+            box-shadow: 0 -20px 60px rgba(0,0,0,0.55);
+            animation: popupSlide 0.5s var(--ease) forwards;
+            display: flex;
+        }
+        .popup::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            animation: popupFade 0.5s var(--ease) forwards;
+            z-index: -1;
+        }
+        .popup-inner {
             flex: 1;
-
-            background-color: var(--button-foreground-light);
-            color: var(--text);
+            padding: 28px 24px calc(env(safe-area-inset-bottom, 12px) + 32px);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .popup-title {
+            margin: 0 0 4px;
+            font-size: var(--fs-2xl);
+            font-weight: 700;
+        }
+        .popup-lead {
+            margin: 0 0 12px;
+            color: var(--text-1);
+            font-size: var(--fs-sm);
         }
 
-        .small-button {
+        .popup-steps {
+            list-style: none;
+            margin: 0;
+            padding: 0;
             display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        .popup-steps li {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+        .step-num {
+            flex: 0 0 28px;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--accent);
+            color: #000;
+            font-weight: 700;
+            font-size: var(--fs-sm);
+            display: inline-flex;
             align-items: center;
             justify-content: center;
+            margin-top: 2px;
+        }
+        .step-body { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+        .step-body p { margin: 0; color: var(--text-1); font-size: var(--fs-sm); }
 
-            padding: 16px;
-            width: 100%;
-            height: 96px;
-
-            font-size: 40px;
-            border-radius: 6px;
-            border: none;
-
-            background-color: var(--button-background-light);
-            color: var(--button-foreground-dark);
+        .popup-link {
+            display: inline-block;
+            background: var(--bg-3);
+            color: var(--accent);
+            padding: 8px 12px;
+            border-radius: var(--radius-sm);
+            font-family: "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
+            font-size: var(--fs-xs);
             cursor: pointer;
-            transition: all 0.1s ease;
+            word-break: break-all;
+            transition: background 0.15s;
+            border: 1px solid var(--border);
         }
+        .popup-link:hover { background: #2a2f37; }
+        .popup-link:active { opacity: 0.8; }
 
-        .small-button:hover {
-            opacity: 0.9;
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 4px;
         }
-
-        .small-button:active {
-            opacity: 0.7;
-            transform: scale(0.98);
+        .field-label {
+            font-size: var(--fs-xs);
+            color: var(--text-2);
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
         }
-
-        .small-button.dark {
-            background-color: var(--button-background-dark);
-            color: var(--text-light);
+        .field-input {
+            background: var(--bg-2);
+            border: 1px solid var(--border);
+            color: var(--text-0);
+            border-radius: var(--radius-sm);
+            padding: 12px 14px;
+            font-size: var(--fs-md);
+            outline: none;
+            transition: border-color 0.15s, background 0.15s;
+            font-family: inherit;
         }
-
-        .small-button.danger {
-            background-color: var(--button-background-light);
-            color: var(--button-foreground-danger);
+        .field-input:focus {
+            border-color: var(--accent);
+            background: var(--bg-3);
         }
+        .field-input::placeholder { color: var(--text-3); }
 
-        .small-button.accent {
-            background-color: var(--button-background-accent);
-            color: var(--button-foreground-dark)
+        .popup-submit {
+            margin-top: 12px;
+            background: var(--accent);
+            color: #000;
+            border: none;
+            padding: 14px 16px;
+            border-radius: var(--radius);
+            font-size: var(--fs-md);
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.15s, transform 0.1s;
         }
+        .popup-submit:hover { background: var(--accent-hi); }
+        .popup-submit:active { transform: scale(0.98); }
 
-        #save-auth {
-            background-color: var(--accent);
-            color: var(--text)
+        @media (max-width: 360px) {
+            .app { padding: 12px 14px 32px; gap: 18px; }
         }
     </style>
 </body>

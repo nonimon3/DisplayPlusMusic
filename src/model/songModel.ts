@@ -1,7 +1,3 @@
-import placeholderArtUrl from '../Assets/placeholder_art.jpg';
-import { downloadImageAsGrayscalePng, downloadImage, uint8ArrayToBase64 } from "./imageModel";
-
-
 class Song {
     type: string = 'Song';
 
@@ -14,7 +10,6 @@ class Song {
     progressSeconds: number;
     durationSeconds: number;
 
-    albumArtRaw: Uint8Array;
     albumArtColor: Uint8Array;
 
     isPlaying: Boolean
@@ -30,7 +25,6 @@ class Song {
         this.progressSeconds = 0;
         this.durationSeconds = 0;
 
-        this.albumArtRaw = new Uint8Array();
         this.albumArtColor = new Uint8Array();
 
         this.isPlaying = false;
@@ -56,9 +50,6 @@ class Song {
     }
     addDurationSeconds(newDurationSeconds: number) {
         this.durationSeconds = newDurationSeconds;
-    }
-    addArtRaw(newArt: Uint8Array) {
-        this.albumArtRaw = newArt;
     }
     addArtColor(newArt: Uint8Array) {
         this.albumArtColor = newArt;
@@ -125,8 +116,6 @@ song_placeholder.addAlbum("");
 song_placeholder.addID("0");
 song_placeholder.addProgressSeconds(30);
 song_placeholder.addDurationSeconds(60);
-// song_placeholder.addArtRaw(await downloadImageAsGrayscalePng(placeholderArtUrl, 100, 100));
-// song_placeholder.addArtColor(await downloadImage(placeholderArtUrl, 144, 144));
 song_placeholder.addisPlaying(false);
 song_placeholder.addChangedState(false);
 

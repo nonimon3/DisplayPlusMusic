@@ -3,32 +3,35 @@ import {
     EvenAppBridge,
     CreateStartUpPageContainer,
     TextContainerProperty,
-    ImageContainerProperty,
-    ImageRawDataUpdate,
-    ImageRawDataUpdateResult,
     StartUpPageCreateResult,
     RebuildPageContainer,
     TextContainerUpgrade,
-    ListContainerProperty,
-    ListItemContainerProperty,
 } from '@evenrealities/even_hub_sdk';
 
-import { formatTime } from '../Scripts/formatTime';
 import Song from '../model/songModel';
 import lyricsPresenter from '../presenter/lyricsPresenter';
+import { uiState } from '../presenter/uiState';
+import { dbg } from '../Scripts/debugBanner';
 
 const MAX_HEIGHT = 288;
 const MAX_WIDTH = 576;
-const IMAGE_RETRY_DELAY_MS = 3000;
+
+export const ID_SONG_INFO = 10;
+export const ID_LYRICS = 11;
+export const ID_BUTTONS = 12;
+
+const TOP_H = 32;
+const BUTTONS_H = 40; // single-line row
+const BUTTONS_Y = MAX_HEIGHT - BUTTONS_H; // 248
+const LYRICS_Y = TOP_H + 8;                // 40
+const LYRICS_H = BUTTONS_Y - LYRICS_Y - 4;  // 204
 
 let bridge: EvenAppBridge | null = null;
 let isPageCreated = false;
 let isUpdating = false;
-let isSendingImage = false;
-let lastSongID = "";
-let imageRetryAt = 0;
 
-/** Resolves with fallback value if the promise times out or throws. */
+const lastText: Record<number, string> = {};
+
 function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
     return Promise.race([
         promise.catch(() => fallback),
@@ -36,99 +39,68 @@ function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T
     ]);
 }
 
-/** Builds the static container layout. Content fields are irrelevant for layout comparison. */
-function buildContainerConfig(songInfoText: string, playbackBarText: string) {
+function buildContainerConfig(songInfoText: string, lyricsText: string, buttonsText: string) {
     return {
-        containerTotalNum: 4,
-        imageObject: [
-            new ImageContainerProperty({
-                xPosition: 22,
-                yPosition: 22,
-                width: 100,
-                height: 100,
-                containerID: 0,
-                containerName: 'album-art',
-            }),
-        ],
-        listObject: [
-            new ListContainerProperty({
-                xPosition: 154,
-                yPosition: 0,
-                width: 80,
-                height: 132,
-                borderWidth: 0,
-                borderRadius: 0,
-                containerID: 2,
-                containerName: 'buttons',
-                isEventCapture: 1,
-                itemContainer: new ListItemContainerProperty({
-                    itemCount: 3,
-                    itemName: ['◁◁', ' ▷ll', '▷▷'],
-                    isItemSelectBorderEn: 1,
-                }),
-            }),
-        ],
+        containerTotalNum: 3,
         textObject: [
             new TextContainerProperty({
-                xPosition: 234,
-                yPosition: 8,
-                width: MAX_WIDTH - 242,
-                height: 132,
-                borderRadius: 12,
-                borderWidth: 1,
-                paddingLength: 16,
-                containerID: 3,
-                containerName: 'songInfo',
+                xPosition: 0, yPosition: 0,
+                width: MAX_WIDTH, height: TOP_H,
+                borderWidth: 0, borderRadius: 0,
+                containerID: ID_SONG_INFO, containerName: 'songInfo',
                 content: songInfoText,
                 isEventCapture: 0,
             }),
             new TextContainerProperty({
-                xPosition: 0,
-                yPosition: 150,
-                width: MAX_WIDTH,
-                height: MAX_HEIGHT - 150,
-                borderRadius: 6,
-                borderWidth: 0,
-                containerID: 4,
-                containerName: 'playbackBar',
-                content: playbackBarText,
+                xPosition: 0, yPosition: LYRICS_Y,
+                width: MAX_WIDTH, height: LYRICS_H,
+                borderWidth: 0, borderRadius: 0,
+                containerID: ID_LYRICS, containerName: 'lyrics',
+                content: lyricsText,
                 isEventCapture: 0,
+            }),
+            new TextContainerProperty({
+                xPosition: 0, yPosition: BUTTONS_Y,
+                width: MAX_WIDTH, height: BUTTONS_H,
+                borderWidth: 0, borderRadius: 0,
+                containerID: ID_BUTTONS, containerName: 'buttons',
+                content: buttonsText,
+                // SDK requires exactly one event-capturing container.
+                isEventCapture: 1,
             }),
         ],
     };
 }
 
-/** Sends album art in the background — never blocks the text update path. */
-async function sendImageAsync(song: Song): Promise<void> {
-    if (isSendingImage || Date.now() < imageRetryAt) return;
-    if (!song.albumArtRaw || song.albumArtRaw.length === 0 || song.songID === lastSongID) return;
+export const BUTTON_COUNT = 4;
+export const HIDE_INDEX = 3; // 4th button — hovering it hides songInfo + buttons (lyrics-only mode)
 
-    isSendingImage = true;
-    try {
-        const result = await withTimeout(
-            bridge!.updateImageRawData(new ImageRawDataUpdate({
-                containerID: 0,
-                containerName: 'album-art',
-                imageData: song.albumArtRaw,
-            })),
-            8000,
-            ImageRawDataUpdateResult.sendFailed,
-        );
+/**
+ * Single-line button row. Selected button is wrapped in [ ]; others are plain.
+ * Play/pause glyph: filled ▶ when playing, hollow ▷ when paused — always
+ * accompanied by `ll` so the button reads as a play/pause toggle regardless
+ * of state. 4th button Ｘ hides top/bottom UI on hover.
+ *
+ * sel=1, playing:  "   ◁◁    [▶ll]    ▷▷    Ｘ   "
+ */
+function buildButtonsText(selected: number, playing: boolean): string {
+    const labels = ['◁◁', playing ? '▶ll' : '▷ll', '▷▷', 'Ｘ'];
+    const cells = labels.map((l, i) => selected === i ? `[${l}]` : l);
+    return '   ' + cells.join('    ') + '   ';
+}
 
-        if (result === ImageRawDataUpdateResult.success) {
-            lastSongID = song.songID;
-            imageRetryAt = 0;
-            console.log(`[GlassesView] Image sent for: ${song.title}`);
-        } else {
-            console.warn(`[GlassesView] Image sendFailed (${result}), retrying in ${IMAGE_RETRY_DELAY_MS}ms`);
-            imageRetryAt = Date.now() + IMAGE_RETRY_DELAY_MS;
-        }
-    } catch (e) {
-        console.error('[GlassesView] sendImageAsync error:', e);
-        imageRetryAt = Date.now() + IMAGE_RETRY_DELAY_MS;
-    } finally {
-        isSendingImage = false;
-    }
+async function upgradeIfChanged(containerID: number, containerName: string, content: string): Promise<void> {
+    if (lastText[containerID] === content) return;
+    const ok = await withTimeout(
+        bridge!.textContainerUpgrade(new TextContainerUpgrade({
+            containerID,
+            containerName,
+            content,
+        })),
+        2000,
+        false,
+    );
+    if (ok) lastText[containerID] = content;
 }
 
 export async function createView(song: Song): Promise<void> {
@@ -136,7 +108,6 @@ export async function createView(song: Song): Promise<void> {
     isUpdating = true;
 
     try {
-        // Cache the bridge — waitForEvenAppBridge resolves instantly after first call
         if (!bridge) {
             bridge = await withTimeout(waitForEvenAppBridge(), 3000, null);
             if (!bridge) {
@@ -145,16 +116,17 @@ export async function createView(song: Song): Promise<void> {
             }
         }
 
-        const songInfoText = `${song.title}\n${song.artist}\n${song.album}`;
-        const playbackBarText =
-            `    ${formatTime(song.progressSeconds)} / ${formatTime(song.durationSeconds)}\n` +
-            `${song.createPlaybackBar(MAX_WIDTH)}\n` +
-            `  ${lyricsPresenter.currentLine}\n` +
-            `    ${lyricsPresenter.nextLine}`;
+        const sel = uiState.selectedButtonIndex;
+        const isHideMode = sel === HIDE_INDEX;
+        // SDK textContainerUpgrade may silently no-op on an empty string,
+        // so fall back to a single space when we want the container to look empty.
+        const BLANK = ' ';
+        const songInfoText = isHideMode ? BLANK : `${song.title} / ${song.artist}`;
+        const lyricsText = lyricsPresenter.displayLines;
+        const buttonsText = isHideMode ? BLANK : buildButtonsText(sel, !!song.isPlaying);
 
-        const config = buildContainerConfig(songInfoText, playbackBarText);
+        const config = buildContainerConfig(songInfoText, lyricsText, buttonsText);
 
-        // First-time setup: create the page container
         if (!isPageCreated) {
             const result = await withTimeout(
                 bridge.createStartUpPageContainer(new CreateStartUpPageContainer(config)),
@@ -162,59 +134,38 @@ export async function createView(song: Song): Promise<void> {
                 StartUpPageCreateResult.invalid,
             );
             console.log('[GlassesView] createStartUpPageContainer:', result);
+            dbg(`view.create: ${result}`);
 
-            if (result === StartUpPageCreateResult.success || result === StartUpPageCreateResult.invalid) {
-                // success = created fresh; invalid = already exists — either way we're ready
+            if (result === StartUpPageCreateResult.success) {
                 isPageCreated = true;
+            } else if (result === StartUpPageCreateResult.invalid) {
+                const rebuilt = await withTimeout(
+                    bridge.rebuildPageContainer(new RebuildPageContainer(config)),
+                    5000,
+                    false,
+                );
+                dbg(`view.rebuild: ${rebuilt}`);
+                if (rebuilt) {
+                    await new Promise(r => setTimeout(r, 300));
+                    isPageCreated = true;
+                } else {
+                    return;
+                }
             } else {
-                // oversize or outOfMemory — can't recover, don't mark as created
                 console.error('[GlassesView] Fatal container error:', result);
+                dbg(`view.create FATAL: ${result}`);
                 return;
             }
+
+            lastText[ID_SONG_INFO] = songInfoText;
+            lastText[ID_LYRICS] = lyricsText;
+            lastText[ID_BUTTONS] = buttonsText;
+            return;
         }
 
-        // Normal update: upgrade text content in-place (no screen clear)
-        const ok1 = await withTimeout(
-            bridge.textContainerUpgrade(new TextContainerUpgrade({
-                containerID: 3,
-                containerName: 'songInfo',
-                content: songInfoText,
-            })),
-            2000,
-            false,
-        );
-
-        if (!ok1) {
-            // Text upgrade failed — fall back to a full rebuild so the container
-            // is definitely in a known state before next frame
-            console.warn('[GlassesView] textContainerUpgrade failed, rebuilding...');
-            const rebuilt = await withTimeout(
-                bridge.rebuildPageContainer(new RebuildPageContainer(config)),
-                5000,
-                false,
-            );
-            if (rebuilt) {
-                await new Promise(r => setTimeout(r, 300));
-                lastSongID = ''; // force image resend after rebuild
-                imageRetryAt = 0;
-            }
-            return; // Either way, skip this frame and retry next tick
-        }
-
-        await withTimeout(
-            bridge.textContainerUpgrade(new TextContainerUpgrade({
-                containerID: 4,
-                containerName: 'playbackBar',
-                content: playbackBarText,
-            })),
-            2000,
-            false,
-        );
-
-        // Kick off image send in background if needed
-        if (song.albumArtRaw?.length > 0 && song.songID !== lastSongID) {
-            sendImageAsync(song);
-        }
+        await upgradeIfChanged(ID_SONG_INFO, 'songInfo', songInfoText);
+        await upgradeIfChanged(ID_LYRICS, 'lyrics', lyricsText);
+        await upgradeIfChanged(ID_BUTTONS, 'buttons', buttonsText);
 
     } catch (e) {
         console.error('[GlassesView] createView error:', e);

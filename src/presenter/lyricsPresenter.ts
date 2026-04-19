@@ -1,5 +1,4 @@
 import { fetchLyrics } from '../model/lyricsModel';
-import { formatTime } from '../Scripts/formatTime';
 import Song from '../model/songModel';
 import spotifyPresenter from './spotifyPresenter';
 
@@ -8,9 +7,11 @@ interface LyricLine {
     text: string;
 }
 
+const DISPLAY_WINDOW = [-1, 0, 1, 2] as const;
+
 class LyricsPresenter {
-    currentLine = '';
-    nextLine = '';
+    // 4 lines joined by \n: [prev, current(bracketed), next, nextNext]
+    displayLines = '';
 
     private currentSongID = '';
     private syncedLyrics = '';
@@ -44,8 +45,7 @@ class LyricsPresenter {
         this.currentSongID = song.songID;
         this.syncedLyrics = '';
         this.currentIndex = 0;
-        this.currentLine = '';
-        this.nextLine = '';
+        this.displayLines = '';
         this.noLyricsShownUntil = null;
 
         this.isFetching = true;
@@ -81,13 +81,13 @@ class LyricsPresenter {
     async updateLyricsLine() {
         try {
             if (!spotifyPresenter.currentSong || !this.syncedLyrics) {
-                // Show "No Lyrics Found" briefly, then clear
+                // Show "No Lyrics Found" briefly on line 1, then clear
                 if (this.noLyricsShownUntil === null) {
                     this.noLyricsShownUntil = Date.now() + this.NO_LYRICS_DISPLAY_MS;
                 }
-                this.currentLine = Date.now() < this.noLyricsShownUntil ? 'No Lyrics Found' : '';
-                this.nextLine = '';
-                this.setHTML(this.currentLine, '');
+                const header = Date.now() < this.noLyricsShownUntil ? 'No Lyrics Found' : '';
+                this.displayLines = [header, '', '', ''].join('\n');
+                this.setHTML(header, '');
                 return;
             }
 
@@ -97,19 +97,25 @@ class LyricsPresenter {
             const progress = spotifyPresenter.currentSong.progressSeconds + this.BLUETOOTH_DELAY;
             this.currentIndex = this.getActiveIndex(parsedLines, progress);
 
-            if (this.currentIndex === -1) {
-                this.currentLine = '';
-                this.nextLine = parsedLines.length > 0
-                    ? `[${formatTime(parsedLines[0].time)}] ${parsedLines[0].text}`
-                    : '';
-            } else {
-                this.currentLine = `[${formatTime(parsedLines[this.currentIndex].time)}] ${parsedLines[this.currentIndex].text}`;
-                this.nextLine = this.currentIndex + 1 < parsedLines.length
-                    ? `[${formatTime(parsedLines[this.currentIndex + 1].time)}] ${parsedLines[this.currentIndex + 1].text}`
-                    : '';
-            }
+            // Before first line plays, pretend we're "one before line 0" so prev=empty, current=empty, next=line0
+            const anchor = this.currentIndex === -1 ? -1 : this.currentIndex;
 
-            this.setHTML(this.currentLine, this.nextLine);
+            const windowLines = DISPLAY_WINDOW.map(offset => {
+                const idx = anchor + offset;
+                const text = idx >= 0 && idx < parsedLines.length ? parsedLines[idx].text : '';
+                if (!text) return '';
+                // offset 0 == currently playing line — mark with bullet.
+                // Others indent with full-width space so text columns line up.
+                return offset === 0 && anchor >= 0 ? `●${text}` : `　${text}`;
+            });
+
+            this.displayLines = windowLines.join('\n');
+
+            // HTML preview keeps showing current + next for backward compat
+            const currentForHtml = anchor >= 0 ? parsedLines[anchor].text : '';
+            const nextForHtml = anchor + 1 < parsedLines.length && anchor + 1 >= 0
+                ? parsedLines[anchor + 1].text : '';
+            this.setHTML(currentForHtml, nextForHtml);
         } catch (e) {
             console.error('[LyricsPresenter] updateLyricsLine error:', e);
         }

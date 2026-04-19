@@ -4,6 +4,7 @@ import spotifyAuthModel from '../model/spotifyAuthModel';
 import Song from '../model/songModel';
 import { formatTime } from '../Scripts/formatTime';
 import { dbg } from '../Scripts/debugBanner';
+import { uiState } from './uiState';
 
 class ViewPresenter {
     private lastSongID: string = ""
@@ -78,12 +79,15 @@ class ViewPresenter {
     }
 
     forwardTrack() {
+        uiState.selectedButtonIndex = 2;
         spotifyPresenter.song_forward();
     }
     playPauseTrack() {
+        uiState.selectedButtonIndex = 1;
         spotifyPresenter.song_pauseplay();
     }
     backTrack() {
+        uiState.selectedButtonIndex = 0;
         spotifyPresenter.song_back();
     }
 
