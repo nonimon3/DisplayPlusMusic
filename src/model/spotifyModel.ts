@@ -4,6 +4,7 @@ import { downloadImage } from './imageModel';
 import { storage } from '../utils/storage';
 import spotifyAuthModel from './spotifyAuthModel';
 import { PERSONAL_CREDS } from '../personal-creds';
+import { dbg } from '../Scripts/debugBanner';
 
 let spotifysdk!: SpotifyApi;
 
@@ -48,6 +49,20 @@ export async function initSpotify(): Promise<void> {
         return data;
     };
 
+    // Prefer any rotated token from storage over the embedded one so that
+    // when Spotify issues a new refresh_token, we don't keep using a stale
+    // embedded copy.
+    if (!refreshToken && PERSONAL_CREDS.SPOTIFY_REFRESH_TOKEN) {
+        refreshToken = PERSONAL_CREDS.SPOTIFY_REFRESH_TOKEN;
+        await storage.setItem('spotify_refresh_token', refreshToken).catch(console.error);
+    }
+
+    // Surface the current refresh_token on every init so it can be copied
+    // out of the sim and embedded for a token-only production build.
+    if (refreshToken) {
+        dbg('TOKEN ' + refreshToken);
+    }
+
     try {
         let authData: any;
 
@@ -56,6 +71,7 @@ export async function initSpotify(): Promise<void> {
             if (authData.refresh_token) {
                 refreshToken = authData.refresh_token;
                 await storage.setItem('spotify_refresh_token', refreshToken!).catch(console.error);
+                dbg('TOKEN ' + refreshToken);
                 console.log('Initial refresh token saved.');
             }
         } else if (refreshToken) {
