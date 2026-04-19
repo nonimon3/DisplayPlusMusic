@@ -3,23 +3,11 @@ import Song, { song_placeholder } from '../model/songModel';
 import { downloadImage } from './imageModel';
 import { storage } from '../utils/storage';
 import spotifyAuthModel from './spotifyAuthModel';
-import { PERSONAL_CREDS } from '../personal-creds';
-import { dbg } from '../Scripts/debugBanner';
-
 let spotifysdk!: SpotifyApi;
 
 export async function initSpotify(): Promise<void> {
-    dbg('initSpotify: start');
-    // If personal credentials are embedded, seed storage with them so the
-    // rest of the auth flow can treat them as already-saved.
-    if (PERSONAL_CREDS.SPOTIFY_CLIENT_ID && PERSONAL_CREDS.SPOTIFY_CLIENT_SECRET) {
-        dbg('initSpotify: embedded creds present, seeding storage');
-        await storage.setItem('spotify_client_id', PERSONAL_CREDS.SPOTIFY_CLIENT_ID).catch(console.error);
-        await storage.setItem('spotify_client_secret', PERSONAL_CREDS.SPOTIFY_CLIENT_SECRET).catch(console.error);
-    }
-
-    const clientId = PERSONAL_CREDS.SPOTIFY_CLIENT_ID || await storage.getItem('spotify_client_id');
-    const clientSecret = PERSONAL_CREDS.SPOTIFY_CLIENT_SECRET || await storage.getItem('spotify_client_secret');
+    const clientId = await storage.getItem('spotify_client_id');
+    const clientSecret = await storage.getItem('spotify_client_secret');
     const codeData = await spotifyAuthModel.checkForAuthCode();
 
     let refreshToken: string | null = null;
@@ -55,22 +43,16 @@ export async function initSpotify(): Promise<void> {
         let authData: any;
 
         if (codeData) {
-            dbg('initSpotify: returning from auth (have code)');
             authData = codeData;
             if (authData.refresh_token) {
                 refreshToken = authData.refresh_token;
                 await storage.setItem('spotify_refresh_token', refreshToken!).catch(console.error);
-                dbg('initSpotify: refresh_token saved');
+                console.log('Initial refresh token saved.');
             }
         } else if (refreshToken) {
-            dbg('initSpotify: refreshing access token');
             authData = await exchangeRefreshToken(refreshToken);
-        } else if (PERSONAL_CREDS.SPOTIFY_CLIENT_ID && PERSONAL_CREDS.SPOTIFY_CLIENT_SECRET) {
-            dbg('initSpotify: auto-auth, navigating to Spotify');
-            await spotifyAuthModel.generateAuthUrl(clientId!);
-            return;
         } else {
-            dbg('initSpotify: no creds, showing popup');
+            console.error('No auth data available');
             document.getElementById('spotify-auth-popup')!.style.display = 'flex';
             return;
         }

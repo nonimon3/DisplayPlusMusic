@@ -2,13 +2,18 @@ import { storage } from '../utils/storage';
 import { dbg } from '../Scripts/debugBanner';
 
 class SpotifyAuthModel {
-    // EVEN Hub serves the ehpk over http://127.0.0.1:<random-port>, so
-    // window.location-derived URIs can't be stably registered in Spotify.
-    // Hardcode this fork's GitHub Pages URL (what's registered in the user's
-    // Spotify dashboard). After auth, Spotify redirects here; the deployed
-    // web version exchanges the code and stores the refresh token via
-    // EvenAppBridge, which the ehpk reads on next launch.
-    REDIRECT_URI = "https://nonimon3.github.io/DisplayPlusMusic/";
+    // Generate the redirect URI dynamically from the current page origin/pathname,
+    // so the same build works for any GitHub Pages fork without code changes.
+    // Spotify strictly forbids HTTP IP addresses other than 127.0.0.1.
+    get REDIRECT_URI() {
+        if (typeof window !== "undefined" && window.location) {
+            const path = window.location.pathname.endsWith("/")
+                ? window.location.pathname
+                : window.location.pathname + "/";
+            return window.location.origin + path;
+        }
+        return "https://oliemanq.github.io/DisplayPlusMusic/";
+    }
     SCOPES = 'user-modify-playback-state user-read-playback-state';
 
     /**
