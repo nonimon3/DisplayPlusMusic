@@ -423,4 +423,3 @@ FodyWeavers.xsd
 *.msp
 .DS_Store
 src/.DS_Store
-src/personal-creds.ts
